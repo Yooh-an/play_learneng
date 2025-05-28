@@ -2,32 +2,32 @@
 
 ## 1. 초기 개발 환경 셋업
 
-- [ ] 프로젝트 생성 및 Git 저장소 초기화
-- [ ] TypeScript 및 React 18 설정
-- [ ] Zustand 설치 및 기본 상태 관리 구조 설정
-- [ ] Tailwind CSS 및 HeadlessUI 설정
-- [ ] CRXJS 및 Vite 빌드 파이프라인 구성
-- [ ] pnpm 패키지 관리자 설정
-- [ ] Chrome Extension Manifest V3 파일 생성
-- [ ] 기본 폴더 구조 생성 (assets, components, services 등)
+- [v] 프로젝트 생성 및 Git 저장소 초기화
+- [v] TypeScript 및 React 18 설정
+- [v] Zustand 설치 및 기본 상태 관리 구조 설정
+- [v] Tailwind CSS 및 HeadlessUI 설정
+- [v] CRXJS 및 Vite 빌드 파이프라인 구성
+- [v] pnpm 패키지 관리자 설정
+- [v] Chrome Extension Manifest V3 파일 생성
+- [v] 기본 폴더 구조 생성 (assets, components, services 등)
 
 ## 2. 크롬 익스텐션 기본 구조 개발
 
-- [ ] background script 작성
-- [ ] content script 작성
-- [ ] popup 페이지 구성
-- [ ] options 페이지 구성
-- [ ] Chrome Storage API 연동 기본 설정
+- [v] background script 작성
+- [v] content script 작성
+- [v] popup 페이지 구성
+- [v] options 페이지 구성
+- [v] Chrome Storage API 연동 기본 설정
 
 ## 3. 핵심 기능 개발: 이중 자막 (FR-001~003)
 
-- [ ] 쿠팡 플레이 영상 플레이어 감지 로직 개발
-- [ ] 원본 자막 요소 탐지 메커니즘 구현
-- [ ] MutationObserver를 통한 자막 변화 감지 구현
-- [ ] 자막 텍스트 추출 및 처리 로직 개발
-- [ ] 이중 자막 렌더링 컴포넌트 개발
-- [ ] 주 자막/보조 자막/이중 자막 토글 기능 구현
-- [ ] 자막 언어 설정 저장 기능 구현
+- [v] 쿠팡 플레이 영상 플레이어 감지 로직 개발
+- [v] 원본 자막 요소 탐지 메커니즘 구현
+- [v] MutationObserver를 통한 자막 변화 감지 구현
+- [v] 자막 텍스트 추출 및 처리 로직 개발
+- [v] 이중 자막 렌더링 컴포넌트 개발
+- [v] 주 자막/보조 자막/이중 자막 토글 기능 구현
+- [v] 자막 언어 설정 저장 기능 구현
 
 ## 4. 자막 커스터마이징 기능 (FR-004~011)
 
