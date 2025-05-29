@@ -9,14 +9,16 @@ export default defineManifest({
   version,
   manifest_version: 3,
   icons: {
-    16: 'src/assets/icon-16.png',
-    32: 'src/assets/icon-32.png',
-    48: 'src/assets/icon-48.png',
-    128: 'src/assets/icon-128.png',
+    // src 경로 대신 상대 경로 사용
+    16: 'icon-16.png',
+    32: 'icon-32.png',
+    48: 'icon-48.png',
+    128: 'icon-128.png',
   },
   action: {
     default_popup: 'src/pages/popup/index.html',
-    default_icon: 'src/assets/icon-32.png',
+    // default_icon도 수정
+    default_icon: 'icon-32.png',
   },
   options_page: 'src/pages/options/index.html',
   background: {
@@ -30,4 +32,10 @@ export default defineManifest({
     },
   ],
   permissions: ['storage', 'tabs'],
+  web_accessible_resources: [
+    {
+      resources: ['assets/*'],
+      matches: ['*://*.coupangplay.com/*']
+    }
+  ],
 });

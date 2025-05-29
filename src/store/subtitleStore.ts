@@ -23,6 +23,9 @@ interface SubtitleState {
   secondaryLanguage: string;
   displayMode: 'primary' | 'secondary' | 'dual';
   
+  // 자막 동기화 조절 (초 단위 +/- 값)
+  subtitleSync: number;
+  
   // 현재 상태
   isPlaying: boolean;
   currentVideoId: string | null;
@@ -36,6 +39,8 @@ interface SubtitleState {
   setPrimaryLanguage: (lang: string) => void;
   setSecondaryLanguage: (lang: string) => void;
   setDisplayMode: (mode: 'primary' | 'secondary' | 'dual') => void;
+  setSubtitleSync: (syncTime: number) => void;
+  adjustSubtitleSync: (amount: number) => void;  // 자막 싱크 미세 조절
   setIsPlaying: (isPlaying: boolean) => void;
   setCurrentVideo: (videoId: string, title: string) => void;
   setActiveSubtitles: (subtitle: ActiveSubtitle | null) => void;
@@ -52,6 +57,7 @@ const useSubtitleStore = create<SubtitleState>()(
       primaryLanguage: 'ko',
       secondaryLanguage: 'en',
       displayMode: 'dual',
+      subtitleSync: 0,  // 자막 동기화 초기값
       
       // 현재 상태
       isPlaying: false,
@@ -66,6 +72,13 @@ const useSubtitleStore = create<SubtitleState>()(
       setPrimaryLanguage: (lang) => set({ primaryLanguage: lang }),
       setSecondaryLanguage: (lang) => set({ secondaryLanguage: lang }),
       setDisplayMode: (mode) => set({ displayMode: mode }),
+      
+      // 자막 싱크 관련 함수
+      setSubtitleSync: (syncTime) => set({ subtitleSync: syncTime }),
+      adjustSubtitleSync: (amount) => set((state) => ({ 
+        subtitleSync: Math.round((state.subtitleSync + amount) * 10) / 10 
+      })),
+      
       setIsPlaying: (isPlaying) => set({ isPlaying }),
       setCurrentVideo: (videoId, title) => set({ 
         currentVideoId: videoId, 
@@ -86,6 +99,7 @@ const useSubtitleStore = create<SubtitleState>()(
         primaryLanguage: state.primaryLanguage,
         secondaryLanguage: state.secondaryLanguage,
         displayMode: state.displayMode,
+        subtitleSync: state.subtitleSync,
         savedSubtitles: state.savedSubtitles,
       }),
     }

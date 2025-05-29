@@ -17,11 +17,24 @@ export const VIDEO_PLAYER_SELECTORS = [
  * 자막 컨테이너를 감지하는 선택자 목록
  */
 export const SUBTITLE_CONTAINER_SELECTORS = [
+  // 쿠팡 플레이 (video.js 기반) 실제 자막 컨테이너 (최우선)
+  '.vjs-text-track-display',
+  // 기존 쿠팡 플레이 특화 자막 컨테이너 선택자 (우선순위 낮춤)
+  '.player-container [aria-live="polite"]',
+  '.player-wrapper [aria-live="polite"]',
+  '[data-testid="player"] [aria-live="polite"]',
+  // 일반적인 자막 컨테이너 선택자
   '.video-subtitle-container',
   '.subtitle-container',
   '.player-subtitle-container',
   '[data-subtitle-container]',
   '[data-testid="subtitle-container"]',
+  // 다양한 대체 선택자 (aria-live="polite"는 잘못된 요소를 선택할 수 있으므로 주석 처리)
+  // '[aria-live="polite"]', // 이 선택자가 문제를 일으켰으므로 주석 처리
+  '[class*="subtitle"]',
+  '[class*="caption"]',
+  '.subtitles',
+  '.captions'
 ];
 
 /**
@@ -51,6 +64,121 @@ export function findVideoPlayer(): HTMLVideoElement | null {
  */
 export function findSubtitleContainer(): Element | null {
   return findElement(SUBTITLE_CONTAINER_SELECTORS);
+}
+
+/**
+ * 쿠팡플레이 기본 자막 비활성화
+ * 확장 프로그램의 자막과 중복 표시 방지
+ */
+export function hideOriginalSubtitles(): void {
+  try {
+    console.log('원본 자막 숨김 처리 시작...');
+    
+    const subtitleDisplayContainer = findSubtitleContainer();
+    if (!subtitleDisplayContainer) {
+      console.warn('자막 표시 컨테이너(.vjs-text-track-display 등)를 찾을 수 없습니다.');
+    } else {
+      console.log('자막 표시 컨테이너 찾음:', subtitleDisplayContainer);
+    }
+    
+    let styleElement = document.getElementById('play-learneng-subtitle-hider');
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = 'play-learneng-subtitle-hider';
+      document.head.appendChild(styleElement);
+    }
+    
+    const extensionSubtitleContainerId = 'play-learneng-subtitle-container';
+
+    styleElement.textContent = `
+      .vjs-text-track-display .vjs-text-track-cue,
+      .vjs-text-track-display > div > .vjs-text-track-cue,
+      .subtitle-container .original-subtitle-element,
+      [data-testid="subtitle-container"] > p,
+      [class*="subtitle"]:not(#${extensionSubtitleContainerId}):not(.play-learneng-subtitle-text),
+      [class*="caption"]:not(#${extensionSubtitleContainerId}):not(.play-learneng-subtitle-text)
+      {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        display: none !important;
+      }
+      
+      #${extensionSubtitleContainerId},
+      #${extensionSubtitleContainerId} .play-learneng-subtitle-text,
+      #${extensionSubtitleContainerId} .play-learneng-subtitle-ko,
+      #${extensionSubtitleContainerId} .play-learneng-subtitle-en {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+        pointer-events: auto !important;
+      }
+    `;
+    
+    if (subtitleDisplayContainer) {
+        const hideNewOriginalCues = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            const element = node as HTMLElement;
+                            if (element.matches && 
+                                element.matches('.vjs-text-track-cue') && 
+                                element.id !== extensionSubtitleContainerId &&
+                                !element.classList.contains('play-learneng-subtitle-text')) {
+                                try {
+                                    element.style.opacity = '0';
+                                    element.style.display = 'none';
+                                    element.style.visibility = 'hidden';
+                                    element.style.pointerEvents = 'none';
+                                } catch (err) {
+                                    console.warn('새로 추가된 원본 자막 숨김 처리 실패:', err, element);
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        hideNewOriginalCues.observe(subtitleDisplayContainer, {
+            childList: true,
+            subtree: true
+        });
+    }
+    
+    console.log('Play LearnEng: 원본 자막 비활성화 스타일 적용됨');
+  } catch (error) {
+    console.error('Play LearnEng: 원본 자막 비활성화 중 오류 발생', error);
+  }
+}
+
+/**
+ * 쿠팡플레이 기본 자막을 다시 활성화
+ */
+export function showOriginalSubtitles(): void {
+  try {
+    const subtitleContainer = findSubtitleContainer();
+    if (!subtitleContainer) return;
+    
+    // 스타일 요소 제거
+    const styleElement = document.getElementById('play-learneng-subtitle-hider');
+    if (styleElement) {
+      styleElement.remove();
+    }
+    
+    // 데이터 속성 제거
+    if (subtitleContainer.hasAttribute('data-pleng-controlled')) {
+      subtitleContainer.removeAttribute('data-pleng-controlled');
+    }
+    if (subtitleContainer.hasAttribute('data-pleng-original-display')) {
+      subtitleContainer.removeAttribute('data-pleng-original-display');
+    }
+    
+    console.log('Play LearnEng: 원본 자막 재활성화됨');
+  } catch (error) {
+    console.error('Play LearnEng: 원본 자막 재활성화 중 오류 발생', error);
+  }
 }
 
 /**

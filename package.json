@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "type-check": "tsc --noEmit",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx"
   },
@@ -17,14 +18,15 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.3",
-    "zustand": "^4.5.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "latest",
     "@types/chrome": "^0.0.323",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",
     "@vitejs/plugin-react": "^4.2.1",
