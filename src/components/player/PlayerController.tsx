@@ -14,6 +14,21 @@ interface PlayerControllerProps {
   };
 }
 
+// Define the structure of subtitleSettings
+interface SubtitleSettings {
+  enabled: boolean;
+  primaryLang: string;
+  secondaryLang: string;
+  style: {
+    fontSize: number;
+    fontColor: string;
+    backgroundColor: string;
+    backgroundOpacity: number;
+  };
+  position: string;
+  delay: number;
+}
+
 const PlayerController: React.FC<PlayerControllerProps> = ({ 
   videoElement, 
   subtitleContainer, 
@@ -24,6 +39,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(videoElement.currentTime);
   const [duration, setDuration] = useState<number>(videoElement.duration);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
+  const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings | null>(null);
   
   const { 
     setActiveSubtitles, 
@@ -39,6 +55,59 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     adjustSubtitleSync
   } = useSubtitleStore();
   
+  // Fetch initial subtitle settings and listen for changes
+  useEffect(() => {
+    const fetchSettings = () => {
+      chrome.storage.sync.get('subtitleSettings', (data) => {
+        if (chrome.runtime.lastError) {
+          console.error('[PlayerController] Error fetching subtitleSettings:', chrome.runtime.lastError.message);
+          return;
+        }
+        if (data.subtitleSettings) {
+          console.log('[PlayerController] Fetched subtitleSettings:', data.subtitleSettings);
+          setSubtitleSettings(data.subtitleSettings);
+        } else {
+          // Initialize with default settings if not found
+          const defaultSettings: SubtitleSettings = {
+            enabled: true,
+            primaryLang: 'en',
+            secondaryLang: 'ko',
+            style: {
+              fontSize: 24,
+              fontColor: '#FFFFFF',
+              backgroundColor: '#000000',
+              backgroundOpacity: 0.7,
+            },
+            position: 'bottom',
+            delay: 0,
+          };
+          console.log('[PlayerController] No subtitleSettings found, initializing with default:', defaultSettings);
+          setSubtitleSettings(defaultSettings);
+          chrome.storage.sync.set({ subtitleSettings: defaultSettings }, () => {
+            if (chrome.runtime.lastError) {
+              console.error('[PlayerController] Error saving default subtitleSettings:', chrome.runtime.lastError.message);
+            }
+          });
+        }
+      });
+    };
+
+    fetchSettings();
+
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'sync' && changes.subtitleSettings) {
+        console.log('[PlayerController] subtitleSettings changed:', changes.subtitleSettings.newValue);
+        setSubtitleSettings(changes.subtitleSettings.newValue);
+      }
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
+  }, []);
+
   // 비디오 정보 설정 (videoInfo 객체 자체를 의존성으로)
   useEffect(() => {
     if (videoInfo && videoInfo.videoId && videoInfo.title) {
@@ -77,7 +146,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     return () => {
       videoElement.removeEventListener('play', handlePlay);
       videoElement.removeEventListener('pause', handlePause);
-      videoElement.removeEventListener('timeupdate', handleTimeUpdate); // 이 timeupdate는 UI용, 자막용은 별도
+      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
       videoElement.removeEventListener('durationchange', handleDurationChange);
     };
   }, [videoElement, setStoreIsPlaying]);
@@ -170,7 +239,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
             secondaryText = vttManagerPrimaryText; 
         }
         
-        // 디버깅 로그 추가
         console.log('[PlayerController DEBUG] onSubtitleLoaded - Values before setActiveSubtitles:');
         console.log('[PlayerController DEBUG]   currentTime:', currentTime);
         console.log('[PlayerController DEBUG]   vttCues.primary:', vttCues.primary);
@@ -181,7 +249,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         console.log('[PlayerController DEBUG]   primaryText (for display):', primaryText);
         console.log('[PlayerController DEBUG]   secondaryText (for display):', secondaryText);
         console.log('[PlayerController DEBUG]   lastDomSubtitle:', lastDomSubtitle);
-
 
         if (primaryText || secondaryText) {
             console.log('[PlayerController] VTT loaded, setting VTT subtitles as active:', { primaryText, secondaryText });
@@ -231,24 +298,9 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       if (vttPrimaryTextForDisplay || vttSecondaryTextForDisplay) {
         const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles;
         if (currentActiveStoreSubtitles?.primaryText !== vttPrimaryTextForDisplay || currentActiveStoreSubtitles?.secondaryText !== vttSecondaryTextForDisplay) {
-          // console.log('[PlayerController] Setting VTT subtitles as active (timeupdate):', { primaryText: vttPrimaryTextForDisplay, secondaryText: vttSecondaryTextForDisplay });
           setActiveSubtitles({ primaryText: vttPrimaryTextForDisplay, secondaryText: vttSecondaryTextForDisplay, timestamp: localCurrentTime });
         }
-      } else {
-        // VTT 자막이 현재 시간에 없을 때, DOM 자막도 없다면 (domObserver가 onSubtitleCleared를 호출하기 전일 수 있음)
-        // 명시적으로 activeSubtitles를 null로 설정하여 이전 VTT 자막이 남아있는 것을 방지.
-        const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles;
-        if (currentActiveStoreSubtitles && (currentActiveStoreSubtitles.primaryText || currentActiveStoreSubtitles.secondaryText)) {
-            // 만약 DOM 자막도 없다면 (lastDomSubtitle을 여기서 직접 참조하기는 어려움)
-            // 이전에 VTT 자막이 있다가 사라진 경우, 그리고 DOM 자막도 없다면 명시적으로 null 처리.
-            // 이 부분은 domObserver의 onSubtitleCleared와 타이밍 이슈가 있을 수 있으므로,
-            // 좀 더 견고하게 하려면 domObserver의 상태도 고려해야 함.
-            // 우선은, VTT가 없고, 이전에 activeSubtitles가 있었다면 null로 설정.
-            // 단, 이로 인해 DOM 자막이 잠깐 사라졌다 다시 나타나는 깜빡임이 생길 수 있음.
-            // console.log('[PlayerController] No VTT at current time (timeupdate), and previous active subtitles existed. Clearing active subtitles.');
-            // setActiveSubtitles(null); // 이 부분은 DOM 자막과의 상호작용을 고려하여 신중하게 결정해야 함. 주석 처리.
-        }
-      }
+      } 
     };
 
     let lastUpdateTime = 0;
@@ -390,16 +442,28 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         return;
       }
     }
-    container.innerHTML = '';
+    container.innerHTML = ''; // Always clear previous subtitles
 
-    let primaryDisplay = subtitle.primaryText;
-    let secondaryDisplay = subtitle.secondaryText;
+    // If subtitle settings are not loaded yet, don't render anything.
+    if (!subtitleSettings) {
+      console.log('[PlayerController] Subtitle settings not yet loaded. Not rendering subtitles.');
+      return;
+    }
 
-    if (displayMode === 'dual' || displayMode === 'primary') {
-      if (primaryDisplay) {
+    const primaryTextToDisplay = subtitle.primaryText;
+    const secondaryTextToDisplay = subtitle.secondaryText;
+
+    // Logic for displaying primary subtitle
+    if (primaryTextToDisplay) {
+      // Show primary if:
+      // 1. Master toggle is OFF (!subtitleSettings.enabled) - always show primary in this case.
+      // OR
+      // 2. Master toggle is ON (subtitleSettings.enabled) AND displayMode allows primary ('primary' or 'dual').
+      if (!subtitleSettings.enabled || 
+          (subtitleSettings.enabled && (displayMode === 'primary' || displayMode === 'dual'))) {
         const primaryElement = document.createElement('div');
         primaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${primaryLanguage}`;
-        primaryElement.textContent = primaryDisplay;
+        primaryElement.textContent = primaryTextToDisplay;
         primaryElement.style.cssText = `
           color: ${primaryLanguage === 'ko' ? '#ffffff' : '#56c7ff'};
           padding: 4px 10px; margin-bottom: 5px;
@@ -411,35 +475,52 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       }
     }
     
-    if (displayMode === 'dual' || displayMode === 'secondary') {
-      if (secondaryDisplay) {
-        const secondaryElement = document.createElement('div');
-        secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLanguage}`;
-        secondaryElement.textContent = secondaryDisplay;
-        secondaryElement.style.cssText = `
-          color: ${secondaryLanguage === 'en' ? '#56c7ff' : '#ffffff'};
-          padding: 4px 10px;
-          font-size: 18px; font-weight: 400; max-width: 90%;
-          text-align: center; line-height: 1.4; white-space: pre-wrap; margin-bottom: 0;
-          text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
-        `;
-        container.appendChild(secondaryElement);
-      }
+    // Logic for displaying secondary subtitle
+    // Show secondary ONLY if:
+    // 1. Master toggle is ON (subtitleSettings.enabled)
+    // AND
+    // 2. displayMode allows secondary ('secondary' or 'dual')
+    // AND
+    // 3. There is secondary text to display.
+    if (subtitleSettings.enabled && 
+        (displayMode === 'secondary' || displayMode === 'dual') && 
+        secondaryTextToDisplay) {
+      const secondaryElement = document.createElement('div');
+      secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLanguage}`;
+      secondaryElement.textContent = secondaryTextToDisplay;
+      secondaryElement.style.cssText = `
+        color: ${secondaryLanguage === 'en' ? '#56c7ff' : '#ffffff'};
+        padding: 4px 10px;
+        font-size: 18px; font-weight: 400; max-width: 90%;
+        text-align: center; line-height: 1.4; white-space: pre-wrap; margin-bottom: 0;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
+      `;
+      container.appendChild(secondaryElement);
     }
-  }, [displayMode, primaryLanguage, secondaryLanguage]);
+  }, [displayMode, primaryLanguage, secondaryLanguage, subtitleSettings]);
 
   useEffect(() => {
-    const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles; 
-    if (showSubtitles && currentActiveStoreSubtitles) {
+    const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles;
+    if (currentActiveStoreSubtitles) {
       renderDualSubtitles(currentActiveStoreSubtitles);
     } else {
-      const container = document.getElementById('play-learneng-subtitle-container');
-      if (container) container.innerHTML = '';
+      // Clear subtitles if no active ones
+      let container = document.getElementById('play-learneng-subtitle-container');
+      if (container) {
+        container.innerHTML = '';
+      }
     }
-  }, [showSubtitles, activeSubtitles, displayMode, renderDualSubtitles]); 
-  
-  // PlayerController는 UI를 렌더링하지 않고 백그라운드에서 자막 처리만 담당
-  return null;
+  }, [activeSubtitles, displayMode, renderDualSubtitles, subtitleSettings]); 
+
+  const togglePlayPause = () => {
+    if (isPlaying) {
+      videoElement.pause();
+    } else {
+      videoElement.play();
+    }
+  };
+
+  return null; // PlayerController is a controller, not a UI component itself
 };
 
 export default PlayerController;

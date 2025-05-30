@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import useSubtitleStore from '../../store/subtitleStore';
 
+console.log('[DualSubtitles] Component SCRIPT LOADED'); // 최상단에 추가
+
 interface DualSubtitlesProps {
   style?: React.CSSProperties;
   source?: 'dom' | 'vtt';
@@ -19,8 +21,6 @@ interface SavedSubtitle {
   id: string;
   primaryText: string;
   secondaryText: string;
-  timestamp: number;
-  episodeTitle?: string;
 }
 
 // DOM 요소의 경로를 가져오는 유틸리티 함수
@@ -53,6 +53,7 @@ const getPathToElement = (element: HTMLElement) => {
 };
 
 const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) => {
+  console.log('[DualSubtitles] Component RENDERING/MOUNTING'); // 컴포넌트 함수 시작 부분에 추가
   const { 
     koreanSubtitle,
     englishSubtitle,
@@ -66,6 +67,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('[DualSubtitles] Settings useEffect RUNNING'); // useEffect 시작 부분에 추가
     const fetchSettings = async () => {
       const settingsResult: { subtitleSettings?: SubtitleSettings } = await new Promise(resolve => {
         chrome.storage.sync.get('subtitleSettings', data => resolve(data as { subtitleSettings?: SubtitleSettings }));
@@ -175,18 +177,6 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
       }
 
       try {
-        // 현재 비디오 시간 가져오기 (DOM에서 직접)
-        let currentTime = 0;
-        const videoElement = document.querySelector('video');
-        if (videoElement) {
-          currentTime = videoElement.currentTime;
-          console.log('[DualSubtitles] Current video time from DOM:', currentTime);
-        } else {
-          // 비디오 요소를 찾을 수 없으면 현재 시간 사용
-          currentTime = Math.floor(Date.now() / 1000);
-          console.warn('[DualSubtitles] Video element not found, using current time');
-        }
-        
         // 언어 설정에 따라 주/부 자막 결정
         const primaryText = currentSettings?.primaryLanguage === 'ko' ? currentKoreanText : currentEnglishText;
         const secondaryText = currentSettings?.primaryLanguage === 'ko' ? currentEnglishText : currentKoreanText;
@@ -194,12 +184,10 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
         // 고유 ID 생성
         const uniqueId = `subtitle_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         
-        const reviewSubtitle = {
+        const reviewSubtitle: SavedSubtitle = { // Explicitly type here
           id: uniqueId,
           primaryText: primaryText || '',
           secondaryText: secondaryText || '',
-          timestamp: currentTime,
-          episodeTitle: document.title || '미지정'
         };
         
         console.log('[DualSubtitles] Saving subtitle directly to storage:', reviewSubtitle);
@@ -216,7 +204,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
             } else {
               console.log('[DualSubtitles] Subtitle saved to storage successfully');
               // 저장된 자막 일부를 피드백 메시지에 포함
-              const shortPrimaryText = primaryText?.substring(0, 15) + (primaryText?.length > 15 ? '...' : '');
+              const shortPrimaryText = primaryText ? (primaryText.substring(0, 15) + (primaryText.length > 15 ? '...' : '')) : "";
               setFeedbackMessage(`"${shortPrimaryText}" 자막이 단어장에 저장되었습니다!`);
               
               // 백그라운드에도 알림 (선택사항)
@@ -247,6 +235,9 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
 
   const updateSubtitles = useCallback(() => {
     let container = containerRef.current;
+    console.log('[DualSubtitles] updateSubtitles CALLED. Initial currentSettings:', JSON.stringify(currentSettings)); // 이 로그는 유지
+    console.log('[DualSubtitles] updateSubtitles CALLED. displayMode from store:', displayMode);
+
     if (!container) {
       container = document.createElement('div');
       container.id = 'play-learneng-subtitle-container';
@@ -259,8 +250,8 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
       container.style.alignItems = 'center';
       container.style.justifyContent = 'center';
       container.style.zIndex = '9999';
-      container.style.pointerEvents = 'auto'; // 클릭 이벤트 허용
-      container.style.cursor = 'pointer'; // 커서를 포인터로 변경
+      container.style.pointerEvents = 'auto';
+      container.style.cursor = 'pointer';
       container.style.padding = '0 20px';
       container.style.boxSizing = 'border-box';
       document.body.appendChild(container);
@@ -269,28 +260,85 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
       }
     }
     
-    container.innerHTML = '';
+    container.innerHTML = ''; // Clear existing subtitles
     
-    if ((displayMode === 'dual' || displayMode === 'primary') && koreanSubtitle) {
-      renderSubtitleInternal(container, koreanSubtitle, {
-        color: '#ffffff',
-        fontSize: '20px',
-        marginBottom: '5px',
-        fontWeight: '500'
-      }, 'ko');
+    if (!currentSettings) { 
+      console.log('[DualSubtitles] currentSettings is NULL, returning.');
+      return;
     }
-    
-    if ((displayMode === 'dual' || displayMode === 'secondary') && englishSubtitle) {
-      renderSubtitleInternal(container, englishSubtitle, {
-        color: '#56c7ff',
-        fontSize: '18px',
-        marginBottom: '0',
-        fontWeight: '400'
-      }, 'en');
+
+    // Log the crucial values just before the decision logic
+    console.log('[DualSubtitles] DECISION POINT. currentSettings.enabled:', currentSettings.enabled, 'Primary Lang:', currentSettings.primaryLanguage);
+    console.log('[DualSubtitles] DECISION POINT. koreanSubtitle:', koreanSubtitle ? `"${koreanSubtitle.substring(0,10)}..."` : 'null');
+    console.log('[DualSubtitles] DECISION POINT. englishSubtitle:', englishSubtitle ? `"${englishSubtitle.substring(0,10)}..."` : 'null');
+
+    const primaryStyle: React.CSSProperties = {
+      color: '#ffffff',
+      fontSize: '20px',
+      marginBottom: '5px',
+      fontWeight: '500'
+    };
+    const secondaryStyle: React.CSSProperties = {
+      color: '#56c7ff',
+      fontSize: '18px',
+      marginBottom: '0px', // Ensure this is 0px if it's the only one or last one
+      fontWeight: '400'
+    };
+
+    if (!currentSettings.enabled) {
+      // Feature is disabled, show only the primary language subtitle
+      console.log('[DualSubtitles] LOGIC: Rendering with enabled: false');
+      if (currentSettings.primaryLanguage === 'ko' && koreanSubtitle) {
+        console.log('[DualSubtitles] LOGIC: Rendering KO sub as primary');
+        renderSubtitleInternal(container, koreanSubtitle, primaryStyle, 'ko');
+      } else if (currentSettings.primaryLanguage === 'en' && englishSubtitle) {
+        console.log('[DualSubtitles] LOGIC: Rendering EN sub as primary');
+        renderSubtitleInternal(container, englishSubtitle, primaryStyle, 'en');
+      } else {
+        console.log('[DualSubtitles] LOGIC: No primary subtitle to render (lang:', currentSettings.primaryLanguage, 'koSub:', !!koreanSubtitle, 'enSub:', !!englishSubtitle, ')');
+      }
+    } else {
+      // Feature is enabled, use displayMode and settings to determine rendering
+      console.log('[DualSubtitles] LOGIC: Rendering with enabled: true, displayMode:', displayMode);
+      const isKoreanPrimary = currentSettings.primaryLanguage === 'ko';
+      
+      const primarySubText = isKoreanPrimary ? koreanSubtitle : englishSubtitle;
+      const secondarySubText = isKoreanPrimary ? englishSubtitle : koreanSubtitle;
+      
+      const primaryLang = isKoreanPrimary ? 'ko' : 'en';
+      const secondaryLang = isKoreanPrimary ? 'en' : 'ko';
+
+      let primaryRendered = false;
+      // Render primary subtitle
+      if ((displayMode === 'dual' || displayMode === 'primary') && primarySubText) {
+        renderSubtitleInternal(container, primarySubText, primaryStyle, primaryLang);
+        primaryRendered = true;
+      }
+      
+      // Render secondary subtitle
+      if ((displayMode === 'dual' || displayMode === 'secondary') && secondarySubText) {
+        const styleForSecondary = {...secondaryStyle};
+        if (!primaryRendered && displayMode === 'secondary') {
+          // If only secondary is shown, adjust its margin to behave like primary
+          // Or, alternatively, use primaryStyle if it's the sole subtitle.
+          // For now, let's ensure it doesn't have extra top margin if it's alone.
+          // The original primary had marginBottom: '5px', secondary had '0'.
+          // If secondary is alone, it should not have a differing bottom margin than if primary was alone.
+          // Let's keep it simple: primary has bottom margin, secondary doesn't.
+          // If secondary is shown alone, it will just have its standard style.
+        }
+         // Adjust margin for secondary if primary is not rendered (it becomes the "bottom" subtitle)
+        const finalSecondaryStyle = {
+            ...secondaryStyle,
+            marginBottom: primaryRendered ? '0px' : '5px', // Mimic primary's bottom margin if it's the only one
+        };
+        renderSubtitleInternal(container, secondarySubText, primaryRendered ? secondaryStyle : primaryStyle, secondaryLang);
+      }
     }
-  }, [displayMode, koreanSubtitle, englishSubtitle, renderSubtitleInternal]);
+  }, [displayMode, koreanSubtitle, englishSubtitle, renderSubtitleInternal, currentSettings]);
   
   useEffect(() => {
+    console.log('[DualSubtitles] updateSubtitles useEffect RUNNING'); // useEffect 시작 부분에 추가
     updateSubtitles();
     
     return () => {
