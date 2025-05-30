@@ -416,10 +416,6 @@ function removeExistingCustomSubtitles(): void {
  * 이중 자막 렌더링 (스크린샷과 일치하는 구조)
  */
 function renderDualSubtitle(container: HTMLElement, text: string | null, language: 'ko' | 'en'): void {
-  if (!text) {
-    console.log(`${language} 자막 텍스트 없음, 렌더링 건너뜀`);
-    return;
-  }
   
   const subtitleElement = document.createElement('div');
   subtitleElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${language}`;
@@ -455,19 +451,19 @@ function renderDualSubtitle(container: HTMLElement, text: string | null, languag
   }
   
   container.appendChild(subtitleElement);
-  console.log(`✅ ${language} 자막 요소 렌더링 완료:`, text);
+  
 }
 
 /**
  * 특정 언어의 자막을 강제로 표시하도록 시도
  */
 function tryForceShowSubtitle(container: Element, language: 'ko' | 'en'): void {
-  console.log(`${language} 자막 강제 활성화 시도 중...`);
+  
   
   // 비디오 재생 상태 확인 - 일시정지 시 비활성화
   const videoElement = document.querySelector('video') as HTMLVideoElement;
   if (videoElement && videoElement.paused) {
-    console.log('비디오가 일시정지 상태입니다. 자막 강제 활성화를 건너뜁니다.');
+    
     return;
   }
   
@@ -480,28 +476,22 @@ function tryForceShowSubtitle(container: Element, language: 'ko' | 'en'): void {
   
   // 2단계: video.js 플레이어에서 텍스트 트랙 조작 시도
   if (videoElement) {
-    console.log(`비디오 요소 발견, 텍스트 트랙 조작 시도...`);
+    
     
     // 더 광범위한 video.js 플레이어 인스턴스 찾기
     const player = findVideoJSPlayer(videoElement);
     
     if (player) {
-      console.log('video.js 플레이어 인스턴스 발견:', player);
+    
       
       // 모든 텍스트 트랙 가져오기
       const textTracks = player.textTracks ? player.textTracks() : videoElement.textTracks;
-      console.log('사용 가능한 텍스트 트랙:', textTracks?.length || 0);
+    
       
       if (textTracks) {
         for (let i = 0; i < textTracks.length; i++) {
           const track = textTracks[i];
-          console.log(`트랙 ${i}:`, {
-            kind: track.kind,
-            language: track.language,
-            label: track.label,
-            mode: track.mode,
-            src: track.src || 'N/A'
-          });
+          ;
           
           // 원하는 언어의 트랙을 찾아서 활성화
           const isTargetLanguage = track.language === language || 
@@ -510,7 +500,7 @@ function tryForceShowSubtitle(container: Element, language: 'ko' | 'en'): void {
                                   track.label?.toLowerCase().includes(language === 'ko' ? 'korean' : 'english');
           
           if (isTargetLanguage && track.mode !== 'showing') {
-            console.log(`${language} 텍스트 트랙 활성화 시도:`, track);
+            
             try {
               track.mode = 'showing';
               
@@ -518,42 +508,35 @@ function tryForceShowSubtitle(container: Element, language: 'ko' | 'en'): void {
               if (player.trigger) {
                 player.trigger('texttrackchange');
               }
-              console.log(`${language} 텍스트 트랙 활성화 성공`);
+              
             } catch (error) {
-              console.error(`${language} 텍스트 트랙 활성화 실패:`, error);
+              
             }
           }
         }
       }
     } else {
-      console.log('video.js 플레이어 인스턴스를 찾지 못했습니다.');
+      
     }
     
     // 3단계: HTML5 비디오 요소의 텍스트 트랙 직접 조작
     if (videoElement && videoElement.textTracks) {
-      console.log('HTML5 텍스트 트랙 직접 조작 시도...');
-      console.log('HTML5 textTracks 개수:', videoElement.textTracks.length);
       
       for (let i = 0; i < videoElement.textTracks.length; i++) {
         const track = videoElement.textTracks[i];
-        console.log(`HTML5 트랙 ${i}:`, {
-          kind: track.kind,
-          language: track.language,
-          label: track.label,
-          mode: track.mode
-        });
+        
         
         const isTargetLanguage = track.language === language || 
                                 track.language === `${language}-KR` ||
                                 track.language === `${language}-US`;
         
         if (isTargetLanguage) {
-          console.log(`HTML5 ${language} 텍스트 트랙 활성화 시도:`, track);
+          
           try {
             track.mode = 'showing';
-            console.log(`HTML5 ${language} 텍스트 트랙 활성화 성공`);
+          
           } catch (error) {
-            console.error(`HTML5 ${language} 텍스트 트랙 활성화 실패:`, error);
+          
           }
         }
       }
@@ -566,7 +549,7 @@ function tryForceShowSubtitle(container: Element, language: 'ko' | 'en'): void {
     const textContent = element.textContent?.trim();
     
     if (textContent && textContent.length > 0) {
-      console.log(`${language} 자막 DOM 강제 표시:`, textContent);
+      
       
       // CSS 스타일을 강제로 변경하여 표시
       htmlElement.style.display = 'block';
@@ -586,7 +569,7 @@ function tryForceShowSubtitle(container: Element, language: 'ko' | 'en'): void {
         parent = parent.parentElement;
       }
       
-      console.log(`${language} 자막 DOM 강제 활성화 완료:`, element);
+      
       break; // 첫 번째 요소만 활성화
     }
   }

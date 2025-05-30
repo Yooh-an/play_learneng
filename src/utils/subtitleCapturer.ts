@@ -185,8 +185,6 @@ export function parseVTT(vttContent: string): VTTCue[] {
       return cues;
     }
     
-    // 로깅 추가 - 디버깅 용도
-    console.log('VTT 파싱 시작, 콘텐츠 일부:', vttContent.substring(0, 200));
     
     // 쿠팡 플레이 특화 포맷 체크 - 일부 쿠팡 플레이 자막은 특이한 형식을 가질 수 있음
     const isCoupangPlayFormat = vttContent.includes('STYLE') && vttContent.includes('::cue');
