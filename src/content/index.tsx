@@ -101,6 +101,16 @@ async function initialize() {
         console.error('[Content Script] Error processing VTT from background:', error);
       }
       sendResponse({ success: true });
+    } else if (message.type === 'JUMP_TO_TIME') {
+      console.log(`[Content Script] JUMP_TO_TIME message received:`, message.timestamp);
+      const videoElement = document.querySelector('video');
+      if (videoElement && typeof message.timestamp === 'number') {
+        videoElement.currentTime = message.timestamp;
+        sendResponse({ success: true });
+      } else {
+        console.error('[Content Script] Video element not found or timestamp invalid for JUMP_TO_TIME.');
+        sendResponse({ success: false, error: 'Video element not found or timestamp invalid' });
+      }
     }
     return true;
   });

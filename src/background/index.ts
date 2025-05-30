@@ -211,6 +211,7 @@ async function processMpdFile(mpdUrl: string, mpdContent: string, tabId: number)
 
     let currentData = tabSubtitleData.get(tabId) || { videoId: tabVideoIdMap.get(tabId) };
     let changed = false;
+    const storageUpdates: { [key: string]: string } = {};
 
     // 한국어 자막 처리
     if (subtitleUrls.koUrl && subtitleUrls.koUrl !== currentData.koUrl) {
@@ -221,6 +222,7 @@ async function processMpdFile(mpdUrl: string, mpdContent: string, tabId: number)
         if (koVttResponse.ok) {
           const koVttText = await koVttResponse.text();
           currentData.koVtt = koVttText;
+          storageUpdates.koreanVttContent = koVttText; // Store in chrome.storage.local
           sendVttToContentScript(tabId, subtitleUrls.koUrl, koVttText, 'ko', currentData.videoId);
         } else {
           console.error(`[Background] Failed to fetch Korean VTT from ${subtitleUrls.koUrl}: ${koVttResponse.status}`);
@@ -239,6 +241,7 @@ async function processMpdFile(mpdUrl: string, mpdContent: string, tabId: number)
         if (enVttResponse.ok) {
           const enVttText = await enVttResponse.text();
           currentData.enVtt = enVttText;
+          storageUpdates.englishVttContent = enVttText; // Store in chrome.storage.local
           sendVttToContentScript(tabId, subtitleUrls.enUrl, enVttText, 'en', currentData.videoId);
         } else {
           console.error(`[Background] Failed to fetch English VTT from ${subtitleUrls.enUrl}: ${enVttResponse.status}`);
@@ -250,6 +253,17 @@ async function processMpdFile(mpdUrl: string, mpdContent: string, tabId: number)
 
     if (changed || !tabSubtitleData.has(tabId)) {
       tabSubtitleData.set(tabId, currentData);
+    }
+
+    // Update chrome.storage.local if there are new VTT contents
+    if (Object.keys(storageUpdates).length > 0) {
+      chrome.storage.local.set(storageUpdates, () => {
+        if (chrome.runtime.lastError) {
+          console.error('[Background] Error saving VTT content to chrome.storage.local:', chrome.runtime.lastError);
+        } else {
+          console.log('[Background] VTT content saved to chrome.storage.local:', storageUpdates);
+        }
+      });
     }
   } catch (error) {
     console.error(`[Background] Error processing MPD file:`, error);

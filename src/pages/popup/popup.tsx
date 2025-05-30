@@ -21,6 +21,14 @@ interface SubtitleSettings {
   opacity: number;
 }
 
+// Added VttSubtitle interface outside Popup for clarity
+interface VttSubtitle {
+  id: string;
+  startTime: number;
+  endTime: number;
+  text: string;
+}
+
 const Popup = () => {
   const [activeTab, setActiveTab] = useState<TabType>('review');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -33,7 +41,10 @@ const Popup = () => {
     opacity: 0.9
   });
   const [savedSubtitles, setSavedSubtitles] = useState<SavedSubtitle[]>([]);
-  const [currentSubtitles, setCurrentSubtitles] = useState<any[]>([]);
+  const [currentSubtitles, setCurrentSubtitles] = useState<any[]>([]); 
+
+  const [koreanVttSubtitles, setKoreanVttSubtitles] = useState<VttSubtitle[]>([]);
+  const [englishVttSubtitles, setEnglishVttSubtitles] = useState<VttSubtitle[]>([]);
   
   // 초기화
   useEffect(() => {
@@ -51,6 +62,18 @@ const Popup = () => {
       if (data.savedSubtitles) setSavedSubtitles(data.savedSubtitles);
       if (data.currentSubtitles) setCurrentSubtitles(data.currentSubtitles);
     });
+
+    // Load VTT subtitles from chrome.storage.local
+    chrome.storage.local.get(['koreanVttContent', 'englishVttContent'], (data) => {
+      if (data.koreanVttContent) {
+        const parsedKorean = parseVTT(data.koreanVttContent, 'ko');
+        setKoreanVttSubtitles(parsedKorean);
+      }
+      if (data.englishVttContent) {
+        const parsedEnglish = parseVTT(data.englishVttContent, 'en');
+        setEnglishVttSubtitles(parsedEnglish);
+      }
+    });
   }, []);
 
   // 설정 저장
@@ -58,7 +81,6 @@ const Popup = () => {
     setSettings(newSettings);
     chrome.storage.sync.set({ subtitleSettings: newSettings });
     
-    // 활성 탭에 설정 변경 알림
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
         chrome.tabs.sendMessage(tabs[0].id, { 
@@ -88,6 +110,97 @@ const Popup = () => {
     });
   };
 
+  // Helper function to parse VTT timestamp (e.g., 00:00:01.234 or 01:23.456)
+  const parseVttTimestamp = (timestampStr: string): number => {
+    const parts = timestampStr.split(':');
+    let seconds = 0;
+    if (parts.length === 3) { // HH:MM:SS.mmm
+      seconds += parseInt(parts[0], 10) * 3600;
+      seconds += parseInt(parts[1], 10) * 60;
+      seconds += parseFloat(parts[2].replace(',', '.'));
+    } else if (parts.length === 2) { // MM:SS.mmm
+      seconds += parseInt(parts[0], 10) * 60;
+      seconds += parseFloat(parts[1].replace(',', '.'));
+    } else if (parts.length === 1) { // SS.mmm (less common, but handle)
+      seconds += parseFloat(parts[0].replace(',', '.'));
+    }
+    return seconds;
+  };
+
+  const parseVTT = (vttContent: string, languagePrefix: 'ko' | 'en'): VttSubtitle[] => {
+    const subtitles: VttSubtitle[] = [];
+    const lines = vttContent.split(/\r?\n/);
+    let i = 0;
+    let cueIndex = 0;
+
+    // Skip WEBVTT header and any initial metadata until a blank line or a cue
+    while (i < lines.length) {
+        const currentLine = lines[i].trim();
+        if (currentLine.toUpperCase() === 'WEBVTT') {
+            i++;
+            continue;
+        }
+        // Break if we find a cue identifier, a timeline, or a blank line indicating end of headers
+        if (currentLine.match(/^\d+$/) || currentLine.includes('-->') || currentLine === '') {
+            break; 
+        }
+        i++; // Skip other metadata lines
+    }
+    
+    for (; i < lines.length; i++) {
+      let lineContent = lines[i]?.trim();
+      if (!lineContent) continue; // Skip empty lines typically separating cues
+
+      // Check for cue identifier (optional, can be just a number or more complex)
+      // If the next line is a timeline, this line might be a cue ID.
+      if (lines[i+1]?.includes('-->') && !lineContent.includes('-->')) {
+         // Potentially a cue ID, but we don't strictly need to parse it if it's not just a number.
+         // If it's not a number, it might be the start of the text if the VTT is malformed.
+         // For simplicity, if it's not a timeline, we assume it's either a cue ID (to be skipped) or text.
+         // The critical part is finding the '-->' for the timeline.
+         if (lineContent.match(/^\d+$/)) { // If it's purely numeric, assume it's a cue ID and skip.
+            i++; 
+            lineContent = lines[i]?.trim();
+            if (!lineContent) continue;
+         }
+      }
+
+
+      if (lineContent.includes('-->')) {
+        const timeLine = lineContent;
+        const timeParts = timeLine.split(' --> ');
+        if (timeParts.length < 2) continue; // Malformed time line
+
+        const startTimeStr = timeParts[0].trim();
+        // Take only the timestamp part if there are other settings on the line (e.g., position cues)
+        const endTimeStr = timeParts[1].trim().split(' ')[0]; 
+
+
+        const startTime = parseVttTimestamp(startTimeStr);
+        const endTime = parseVttTimestamp(endTimeStr);
+
+        let textLines: string[] = [];
+        i++; // Move to the first line of subtitle text
+        while (i < lines.length && lines[i]?.trim() !== '') {
+          textLines.push(lines[i].trim());
+          i++;
+        }
+        const text = textLines.join('\n').trim();
+
+        if (!isNaN(startTime) && !isNaN(endTime) && text) {
+          subtitles.push({ 
+            id: `vtt-${languagePrefix}-${cueIndex++}-${startTime}`, 
+            startTime, 
+            endTime, 
+            text 
+          });
+        }
+        // The loop will increment i, effectively skipping the blank line after text block if present
+      }
+    }
+    return subtitles.sort((a, b) => a.startTime - b.startTime);
+  };
+  
   const TabButton = ({ tab, label, isActive, onClick }: {
     tab: TabType;
     label: string;
@@ -159,45 +272,90 @@ const Popup = () => {
     </div>
   );
 
-  const AnalysisTab = () => (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">스크립트</h3>
-        <span className="text-sm text-gray-500">{currentSubtitles.length}개</span>
-      </div>
-      
-      {isPlaying ? (
-        currentSubtitles.length > 0 ? (
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {currentSubtitles.map((subtitle, index) => (
-              <div key={index} className="p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors cursor-pointer"
-                   onClick={() => jumpToTimestamp(subtitle.startTime)}>
-                <div className="text-sm font-medium">{subtitle.text}</div>
-                {subtitle.translation && (
-                  <div className="text-xs text-gray-600 mt-1">{subtitle.translation}</div>
-                )}
-                <div className="text-xs text-gray-400 mt-1">
-                  {Math.floor(subtitle.startTime / 60)}:{(subtitle.startTime % 60).toFixed(1).padStart(4, '0')}
+  // Updated AnalysisTab to remove file upload and use loaded VTT data
+  const AnalysisTab = ({ 
+    koreanSubs, 
+    englishSubs, 
+    onJumpToTimestamp,
+    isPlayerActive
+  }: {
+    koreanSubs: VttSubtitle[];
+    englishSubs: VttSubtitle[];
+    onJumpToTimestamp: (timestamp: number) => void;
+    isPlayerActive: boolean;
+  }) => {
+    const [selectedAnalysisLanguage, setSelectedAnalysisLanguage] = useState<'ko' | 'en'>('ko');
+
+    const subtitlesToDisplay = selectedAnalysisLanguage === 'ko' ? koreanSubs : englishSubs;
+
+    const formatTime = (timeInSeconds: number) => {
+      const minutes = Math.floor(timeInSeconds / 60);
+      const seconds = timeInSeconds % 60;
+      return `${String(minutes).padStart(2, '0')}:${seconds.toFixed(3).padStart(6, '0')}`;
+    };
+
+    return (
+      <div className="p-4">
+        <h3 className="text-lg font-semibold mb-4">스크립트 분석</h3>
+        
+        <div className="flex border-b mb-4">
+          <button 
+            onClick={() => setSelectedAnalysisLanguage('ko')} 
+            className={`flex-1 py-2 px-3 text-sm font-medium transition-colors ${selectedAnalysisLanguage === 'ko' ? 'border-b-2 border-blue-500 text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            한국어 자막 ({koreanSubs.length})
+          </button>
+          <button 
+            onClick={() => setSelectedAnalysisLanguage('en')} 
+            className={`flex-1 py-2 px-3 text-sm font-medium transition-colors ${selectedAnalysisLanguage === 'en' ? 'border-b-2 border-blue-500 text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+          >
+            영어 자막 ({englishSubs.length})
+          </button>
+        </div>
+        
+        {!isPlayerActive && (koreanSubs.length > 0 || englishSubs.length > 0) && (
+            <div className="mb-3 p-2 text-sm text-orange-700 bg-orange-100 border border-orange-300 rounded-md">
+                참고: 영상 시간으로 이동 기능은 쿠팡 플레이 영상이 활성화된 탭에서만 작동합니다.
+            </div>
+        )}
+
+        {(koreanSubs.length === 0 && englishSubs.length === 0) ? (
+          <div className="text-center py-10 text-gray-500">
+            <div className="text-4xl mb-3">📺</div>
+            <p className="font-medium">로드된 자막 데이터가 없습니다.</p>
+            <p className="text-sm mt-1">쿠팡플레이 영상 페이지에서 자막이 로드되면 여기에 표시됩니다.</p>
+          </div>
+        ) : subtitlesToDisplay.length > 0 ? (
+          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2"> {/* Adjusted max-h */}
+            {subtitlesToDisplay.map((sub) => (
+              <div 
+                key={sub.id} 
+                className={`p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors ${isPlayerActive ? 'cursor-pointer' : 'cursor-default'}`}
+                onClick={() => {
+                  if (isPlayerActive) {
+                    onJumpToTimestamp(sub.startTime);
+                  }
+                }}
+                title={isPlayerActive ? "클릭하여 영상 시간으로 이동" : "쿠팡플레이 영상 재생 중 이동 가능"}
+              >
+                <div className="text-sm font-medium text-gray-800 whitespace-pre-wrap">{sub.text}</div>
+                <div className="text-xs text-blue-500 mt-1 font-mono">
+                  {formatTime(sub.startTime)} ~ {formatTime(sub.endTime)}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            <div className="text-4xl mb-2">📺</div>
-            <p>자막 데이터가 없습니다</p>
-            <p className="text-sm mt-1">영상을 재생하면 자막이 표시됩니다</p>
+          <div className="text-center py-10 text-gray-500">
+            <div className="text-4xl mb-3">🤔</div>
+            <p className="font-medium">선택된 언어 ({selectedAnalysisLanguage === 'ko' ? '한국어' : '영어'})의 자막이 없습니다.</p>
+            <p className="text-sm mt-1">다른 언어 탭을 확인해보세요.</p>
           </div>
-        )
-      ) : (
-        <div className="text-center py-8 text-gray-500">
-          <div className="text-4xl mb-2">🎬</div>
-          <p>쿠팡 플레이 페이지가 아닙니다</p>
-          <p className="text-sm mt-1">영상 페이지로 이동해주세요</p>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
+
 
   const SubtitleTab = () => (
     <div className="p-4 space-y-4">
@@ -344,7 +502,14 @@ const Popup = () => {
       {/* 탭 컨텐츠 */}
       <div className="min-h-96">
         {activeTab === 'review' && <ReviewTab />}
-        {activeTab === 'analysis' && <AnalysisTab />}
+        {activeTab === 'analysis' && (
+          <AnalysisTab 
+            koreanSubs={koreanVttSubtitles}
+            englishSubs={englishVttSubtitles}
+            onJumpToTimestamp={jumpToTimestamp}
+            isPlayerActive={isPlaying} 
+          />
+        )}
         {activeTab === 'subtitle' && <SubtitleTab />}
       </div>
     </div>
