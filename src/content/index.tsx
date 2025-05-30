@@ -438,8 +438,6 @@ interface SavedSubtitle {
   id: string;
   primaryText: string;
   secondaryText: string;
-  timestamp: number;
-  episodeTitle?: string;
   savedAt?: string;
 }
 
@@ -538,18 +536,10 @@ function saveSubtitleToStorage(subtitle: { primaryText: string; secondaryText: s
     // 고유 ID 생성
     const uniqueId = `subtitle_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     
-    // extractVideoInfo 함수를 사용하여 정확한 에피소드 타이틀 가져오기
-    const videoInfo = extractVideoInfo();
-    const episodeTitle = videoInfo.title 
-      ? `${videoInfo.title}${videoInfo.episodeInfo ? ` - ${videoInfo.episodeInfo}` : ''}`
-      : document.title || '미지정';
-    
     const reviewSubtitle: SavedSubtitle = {
       id: uniqueId,
       primaryText: subtitle.primaryText,
       secondaryText: subtitle.secondaryText,
-      timestamp: subtitle.timestamp,
-      episodeTitle: episodeTitle,
       savedAt: new Date().toISOString()
     };
     

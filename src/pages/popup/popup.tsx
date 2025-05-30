@@ -270,54 +270,31 @@ const Popup = () => {
         <h3 className="text-lg font-semibold">단어장</h3>
         <span className="text-sm text-gray-500">{savedSubtitles.length}개</span>
       </div>
-      
-      {savedSubtitles.length > 0 ? (
-        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-          {savedSubtitles.slice().reverse().map((subtitle) => ( 
-            <div key={subtitle.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors shadow-sm">
-              <div className="flex justify-between items-start mb-1.5">
-                <div className="flex-1 mr-2">
-                  <div className="font-medium text-gray-800 mb-1 whitespace-pre-wrap">{subtitle.primaryText}</div>
-                  {subtitle.secondaryText && (
-                    <div className="text-sm text-gray-500 whitespace-pre-wrap">{subtitle.secondaryText}</div>
-                  )}
+      {savedSubtitles.length === 0 ? (
+        <div className="text-center py-10 text-gray-500">
+          <div className="text-4xl mb-3">📚</div>
+          <p className="font-medium">저장된 자막이 없습니다.</p>
+          <p className="text-sm mt-1">영상에서 자막을 클릭하여 단어장에 추가해보세요!</p>
+        </div>
+      ) : (
+        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+          {savedSubtitles.map((subtitle) => (
+            <div key={subtitle.id} className="bg-white p-3 rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-start">
+                <div>
+                  {subtitle.primaryText && <p className="text-sm text-gray-800 leading-relaxed">{subtitle.primaryText}</p>}
+                  {subtitle.secondaryText && <p className="text-xs text-gray-500 mt-1 leading-relaxed">{subtitle.secondaryText}</p>}
                 </div>
-                <button
+                <button 
                   onClick={() => deleteSubtitle(subtitle.id)}
-                  className="ml-2 text-red-500 hover:text-red-700 text-xl p-1 leading-none"
+                  className="text-red-400 hover:text-red-600 transition-colors p-1 ml-2"
                   title="삭제"
                 >
                   &times;
                 </button>
               </div>
-              {subtitle.episodeTitle && (
-                <div className="text-xs text-gray-400 mb-1.5 italic">{subtitle.episodeTitle}</div>
-              )}
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-gray-400 font-mono">
-                  {formatTime(subtitle.timestamp)} 
-                </span>
-                <button
-                  onClick={() => jumpToTimestamp(subtitle.timestamp)}
-                  className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                    isPlaying 
-                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                  disabled={!isPlaying}
-                  title={isPlaying ? "영상 시간으로 이동" : "쿠팡플레이 영상 재생 중 이동 가능"}
-                >
-                  재생 위치로
-                </button>
-              </div>
             </div>
           ))}
-        </div>
-      ) : (
-        <div className="text-center py-8 text-gray-500">
-          <div className="text-4xl mb-2">📝</div>
-          <p>저장된 자막이 없습니다</p>
-          <p className="text-sm mt-1">영상에서 자막을 클릭하여 저장해보세요</p>
         </div>
       )}
     </div>

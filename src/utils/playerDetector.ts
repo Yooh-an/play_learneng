@@ -186,46 +186,206 @@ export function showOriginalSubtitles(): void {
  * 제목, 에피소드 정보 등
  */
 export function extractVideoInfo(): { title: string; episodeInfo: string; videoId: string } {
-  // 기본 값
   let title = '';
   let episodeInfo = '';
   let videoId = '';
-  
-  try {
-    // 현재 URL에서 videoId 추출 시도
-    const urlMatch = window.location.href.match(/\/watch\/(\d+)/);
-    if (urlMatch && urlMatch[1]) {
-      videoId = urlMatch[1];
+
+  // 1. Try JSON-LD first (often the most structured and reliable)
+  // 웹페이지에 application/ld+json 타입의 스크립트가 있다면, 이 데이터를 우선적으로 사용합니다.
+  const jsonLdScripts = document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]');
+  jsonLdScripts.forEach(script => {
+    try {
+      const jsonData = JSON.parse(script.textContent || '{}');
+      // TV 에피소드, 영화, 비디오 객체 타입 확인
+      if (jsonData['@type'] === 'TVEpisode' || jsonData['@type'] === 'Movie' || jsonData['@type'] === 'VideoObject') {
+        if (jsonData.name && !title) {
+          // jsonData.name이 에피소드 제목이거나 영화 제목일 수 있음
+          title = jsonData.name;
+        }
+
+        if (jsonData['@type'] === 'TVEpisode') {
+          // TV 에피소드인 경우 시리즈 정보 추출
+          if (jsonData.partOfSeries && jsonData.partOfSeries.name) {
+            title = jsonData.partOfSeries.name; // 시리즈 제목
+            if (jsonData.name && jsonData.name !== title) {
+              episodeInfo = jsonData.name; // 에피소드 제목
+            }
+          }
+          // 시즌 및 에피소드 번호 추출
+          let seasonEpisodeDetails: string[] = []; // Explicitly type as string[]
+          if (jsonData.seasonNumber) seasonEpisodeDetails.push(`시즌 ${jsonData.seasonNumber}`);
+          if (jsonData.episodeNumber) seasonEpisodeDetails.push(`에피소드 ${jsonData.episodeNumber}`);
+          
+          const seasonEpisodeStr = seasonEpisodeDetails.join(', ');
+          if (episodeInfo && seasonEpisodeStr && !episodeInfo.includes(seasonEpisodeStr)) {
+            episodeInfo = `${episodeInfo} (${seasonEpisodeStr})`;
+          } else if (!episodeInfo && seasonEpisodeStr) {
+            episodeInfo = seasonEpisodeStr;
+          }
+        }
+        // TODO: JSON-LD 내에 고유 식별자가 있다면 videoId 추출 시도
+        // 예: jsonData.identifier, jsonData.url 또는 jsonData.embedUrl 파싱
+      }
+    } catch (e) {
+      console.warn('[Play LearnEng] Error parsing JSON-LD data:', e);
     }
-    
-    // 제목 찾기 시도 (여러 선택자 시도)
-    const titleSelectors = [
-      '.player-header-title',
-      '.video-title',
-      '.content-title',
-      'h1.title',
+  });
+
+  // 2. Try specific DOM elements (examples, need Coupang Play specific selectors)
+  // 쿠팡플레이 DOM 구조를 분석하여 실제 사용되는 셀렉터로 교체해야 합니다.
+  if (!title) {
+    // 시리즈/프로그램 제목 선택자 예시
+    const seriesTitleSelectors = [
+      '[data-testid="program-title"]', // React 앱에서 흔히 사용
+      '.series-title-css-class',      // 예시 CSS 클래스
+      // TODO: 쿠팡플레이 실제 시리즈 제목 셀렉터를 여기에 추가하세요.
     ];
-    
-    const titleElement = findElement(titleSelectors);
-    if (titleElement) {
-      title = titleElement.textContent?.trim() || '';
+    for (const selector of seriesTitleSelectors) {
+      const el = document.querySelector<HTMLElement>(selector);
+      if (el && el.textContent) {
+        title = el.textContent.trim();
+        break;
+      }
     }
-    
-    // 에피소드 정보 찾기 시도
-    const episodeSelectors = [
-      '.episode-info',
-      '.video-episode',
-      '.player-header-episode',
+  }
+
+  if (!episodeInfo) {
+    // 에피소드 정보 선택자 예시
+    const episodeInfoSelectors = [
+      '[data-testid="episode-title"]',
+      '.episode-info-css-class',
+      // TODO: 쿠팡플레이 실제 에피소드 정보 셀렉터를 여기에 추가하세요.
     ];
-    
-    const episodeElement = findElement(episodeSelectors);
-    if (episodeElement) {
-      episodeInfo = episodeElement.textContent?.trim() || '';
+    for (const selector of episodeInfoSelectors) {
+      const el = document.querySelector<HTMLElement>(selector);
+      if (el && el.textContent) {
+        episodeInfo = el.textContent.trim();
+        break;
+      }
     }
-  } catch (error) {
-    console.error('Play LearnEng: 비디오 정보 추출 중 오류:', error);
+  }
+
+  // 3. Try meta tags and document title as fallbacks
+  if (!title) {
+    const ogTitleMeta = document.querySelector<HTMLMetaElement>('meta[property="og:title"]');
+    if (ogTitleMeta && ogTitleMeta.content) {
+      title = ogTitleMeta.content.trim();
+    }
+  }
+  // document.title은 최후의 보루로 사용하거나, 다른 정보가 없을 때 기본값으로 활용
+  if (!title && document.title) {
+    const docTitle = document.title.trim();
+    if (docTitle !== '쿠팡플레이' && docTitle !== 'Coupang Play') {
+        title = docTitle;
+    }
+  }
+
+
+  // 4. Clean up and refine title and episodeInfo
+  // 제목(title)에 에피소드 정보(episodeInfo)가 포함되어 있고, 두 정보가 다를 경우 제목에서 에피소드 정보 제거
+  if (episodeInfo && title.includes(episodeInfo) && title !== episodeInfo) {
+    const potentialSeriesTitle = title.replace(episodeInfo, '').replace(/[-—:]\\s*$/, '').trim(); // em-dash 추가
+    if (potentialSeriesTitle) {
+      title = potentialSeriesTitle;
+    }
+  } else if (title && !episodeInfo) {
+    // 에피소드 정보(episodeInfo)가 비어있고 제목(title)에 시리즈와 에피소드가 함께 있을 경우 분리 시도
+    const separators = [' - ', ' — ', ': الحلقة ', ': 에피소드 ', ': Episode ', ' 시즌 ', ' Season ']; // em-dash 추가 및 다양한 구분자
+    for (const sep of separators) {
+      if (title.includes(sep)) {
+        const parts = title.split(sep);
+        if (parts.length > 1) {
+          const potentialSeries = parts[0].trim();
+          const potentialEpisode = parts.slice(1).join(sep).trim();
+          // 휴리스틱: 첫 부분이 너무 짧지 않고, 두 번째 부분이 에피소드 정보로 보일 경우
+          if (potentialSeries.length > 1 && potentialEpisode.length > 0) { // 시리즈 이름이 한 글자일 수도 있음 (예: 'V')
+            title = potentialSeries;
+            episodeInfo = potentialEpisode;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Video ID Extraction
+  const urlPath = window.location.pathname;
+  const urlParams = new URLSearchParams(window.location.search);
+  // 쿠팡플레이 URL 구조에 맞게 정규식 수정 (예: /contents/, /episode/)
+  const videoIdPathMatch = urlPath.match(/\/videos\/([\w-]+)/) || urlPath.match(/\/contents\/([\w-]+)/) || urlPath.match(/\/episode\/([\w-]+)/) ;
+  if (videoIdPathMatch && videoIdPathMatch[1]) {
+    videoId = videoIdPathMatch[1];
+  } else if (urlParams.get('videoId')) {
+    videoId = urlParams.get('videoId')!;
+  } else {
+    // 비디오 플레이어 또는 관련 요소의 데이터 속성에서 ID 추출 시도
+    // TODO: 쿠팡플레이의 data-video-id, data-content-id 등 특정 데이터 속성 확인 필요
+    const videoElement = document.querySelector('video');
+    if (videoElement) {
+        const playerWrapper = videoElement.closest('[data-content-id], [data-video-id], [id*="player"]');
+        if (playerWrapper) {
+            videoId = playerWrapper.getAttribute('data-content-id') || playerWrapper.getAttribute('data-video-id') || '';
+        }
+    }
+    // TODO: JSON-LD를 통해 videoId를 찾았는지 확인 (고유 식별자 필드가 있는 경우)
+  }
+
+  // Final fallbacks and adjustments
+  // 제목이 여전히 일반적이거나 비어있을 경우 조정
+  if (!title || title === '쿠팡플레이' || title === 'Coupang Play') {
+    // 문서 제목이 더 구체적이라면 사용
+    if (document.title && document.title.trim() !== '' && document.title !== '쿠팡플레이' && document.title !== 'Coupang Play') {
+        const docTitle = document.title.trim();
+        // 만약 episodeInfo가 이미 title에서 추출된 형태와 유사하다면, docTitle을 그대로 사용하지 않도록 주의
+        if (!(episodeInfo && docTitle.includes(title) && docTitle.includes(episodeInfo))) {
+            title = docTitle;
+            // title이 document.title로 설정된 후, episodeInfo가 비어있다면 다시 분리 시도
+            if (!episodeInfo) {
+                const separators = [' - ', ' — ', ': الحلقة ', ': 에피소드 ', ': Episode ', ' 시즌 ', ' Season '];
+                for (const sep of separators) {
+                    if (title.includes(sep)) {
+                        const parts = title.split(sep);
+                        if (parts.length > 1) {
+                            const potentialSeries = parts[0].trim();
+                            const potentialEpisode = parts.slice(1).join(sep).trim();
+                            if (potentialSeries.length > 1 && potentialEpisode.length > 0) {
+                                title = potentialSeries;
+                                episodeInfo = potentialEpisode;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
   }
   
+  // 제목이 여전히 일반적인 "쿠팡플레이"이고 에피소드 정보가 있다면,
+  // 영화의 경우 에피소드 정보가 실제 제목일 수 있음.
+  if ((title === '쿠팡플레이' || title === 'Coupang Play' || title.trim() === '') && episodeInfo) {
+    // 휴리스틱: episodeInfo가 "시즌 X / 에피소드 Y" 형태가 아니라면, 이를 주요 제목으로 간주
+    if (!/시즌|Season|에피소드|Episode|[Ss]\\d+[Ee]\\d+/i.test(episodeInfo)) {
+        title = episodeInfo; // episodeInfo를 주요 제목으로 설정
+        episodeInfo = '';    // episodeInfo는 이제 주요 제목이므로 비움
+    }
+  }
+
+  // 최종 ID 및 제목 폴백
+  if (!videoId) {
+    videoId = `cp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`; // 더 고유한 ID 생성
+  }
+  if (!title || title.trim() === '' || title === '쿠팡플레이' || title === 'Coupang Play') {
+      title = '쿠팡플레이'; // 최종 제목 폴백
+  }
+
+  // 중복 제거: episodeInfo가 title의 일부이고, title이 episodeInfo로만 구성된 경우
+  if (episodeInfo && title === episodeInfo) {
+      episodeInfo = ''; // 이런 경우 episodeInfo를 비워 중복 저장 방지
+  }
+
+
+  console.log(`[Play LearnEng extractVideoInfo] Final Extracted: Title='${title}', Episode='${episodeInfo}', VideoID='${videoId}'`);
   return { title, episodeInfo, videoId };
 }
 
