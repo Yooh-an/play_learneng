@@ -405,43 +405,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   else if (message.type === 'ADD_REVIEW_SUBTITLE') {
-    const newSubtitleData = message.payload as Omit<SavedSubtitleFromPopup, 'episodeTitle'>;
+    const newSubtitleData = message.payload as Omit<SavedSubtitleFromPopup, 'id' | 'episodeTitle'>;
     
     chrome.storage.sync.get(['savedSubtitles', 'subtitleSettings'], (data) => {
       if (chrome.runtime.lastError) {
-        console.error("Error getting savedSubtitles:", chrome.runtime.lastError.message);
+        console.error("[Background] Error getting savedSubtitles:", chrome.runtime.lastError.message);
         sendResponse({ status: 'error', message: chrome.runtime.lastError.message });
         return;
       }
 
       const savedSubtitles: SavedSubtitleFromPopup[] = data.savedSubtitles || [];
+      
+      // 고유 ID 생성 (타임스탬프 + 랜덤 문자열)
+      const uniqueId = `subtitle_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      
       const finalNewSubtitle: SavedSubtitleFromPopup = {
         ...newSubtitleData,
-        // episodeTitle will be added here if possible
+        id: uniqueId,  // 고유 ID 추가
+        episodeTitle: '미지정' // 기본값 설정
       };
 
-      // Attempt to add episodeTitle/videoId
+      // 에피소드 제목/비디오 ID 추가 시도
       if (sender.tab && sender.tab.id) {
-        const tabData = tabSubtitleData.get(sender.tab.id); // tabSubtitleData is from your existing background script
+        const tabData = tabSubtitleData.get(sender.tab.id);
         if (tabData && tabData.videoId) {
-          // You might want a more descriptive title or a way to map videoId to a title
-          finalNewSubtitle.episodeTitle = `Video ID: ${tabData.videoId}`; 
+          finalNewSubtitle.episodeTitle = `비디오 ID: ${tabData.videoId}`;
+        } else {
+          // 탭 제목 사용
+          finalNewSubtitle.episodeTitle = sender.tab.title || '미지정';
         }
       }
       
-      savedSubtitles.push(finalNewSubtitle);
+      console.log('[Background] Adding new subtitle to review tab:', finalNewSubtitle);
       
+      // 새 자막을 목록 앞에 추가
+      savedSubtitles.unshift(finalNewSubtitle);
+      
+      // 저장소에 저장
       chrome.storage.sync.set({ savedSubtitles }, () => {
         if (chrome.runtime.lastError) {
-          console.error("Error setting savedSubtitles:", chrome.runtime.lastError.message);
+          console.error("[Background] Error setting savedSubtitles:", chrome.runtime.lastError.message);
           sendResponse({ status: 'error', message: chrome.runtime.lastError.message });
         } else {
-          console.log('Subtitle saved to review tab:', finalNewSubtitle);
-          sendResponse({ status: 'success' });
+          console.log('[Background] Subtitle saved to review tab:', finalNewSubtitle);
+          sendResponse({ status: 'success', subtitle: finalNewSubtitle });
         }
       });
     });
-    return true; // Indicates that the response will be sent asynchronously.
+    return true; // 비동기 응답을 위한 true 반환
   }
   // Example: Forwarding VTT data if background script is responsible for fetching and distributing
   if (message.type === 'FETCHED_VTT_DATA') { // Assuming a message type like this
@@ -518,6 +529,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
     }
     return true;
+  }
+  
+  // 현재 비디오 시간 제공 (콘텐츠 스크립트가 응답하지 않은 경우를 위한 백업 핸들러)
+  else if (message.type === 'LE_GET_CURRENT_TIME') {
+    console.log('[Background] LE_GET_CURRENT_TIME request received from:', sender.tab?.id);
+    
+    if (sender.tab?.id) {
+      // 콘텐츠 스크립트에게 시간을 요청
+      chrome.tabs.sendMessage(sender.tab.id, { type: 'LE_GET_CURRENT_TIME' }, 
+        (response) => {
+          if (chrome.runtime.lastError || !response) {
+            console.warn('[Background] Failed to get time from content script, sending fallback time');
+            // 응답이 없을 경우 기본값 전송
+            sendResponse({ currentTime: Math.floor(Date.now() / 1000) });
+          } else {
+            console.log('[Background] Forwarding time from content script:', response);
+            sendResponse(response);
+          }
+        }
+      );
+    } else {
+      console.warn('[Background] No valid tab ID for LE_GET_CURRENT_TIME request');
+      sendResponse({ currentTime: Math.floor(Date.now() / 1000) });
+    }
+    
+    return true; // 비동기 응답 처리를 위한 true 반환
   }
   
   // Make sure to include any other message handlers that were in your original background script.

@@ -175,7 +175,7 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
       // 자막 트랙인 경우 showing 모드로 설정 시도
       if ((track.kind === 'subtitles' || track.kind === 'captions') && track.mode !== 'showing') {
         try {
-          console.log(`트랙 ${i} 활성화 시도:`, track.language);
+          
           track.mode = 'showing';
         } catch (e) {
           console.error('트랙 활성화 실패:', e);
@@ -226,13 +226,9 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
     
     // 활성화된 자막을 찾았으면 바로 반환
     if (foundElements.length > 0) {
-      console.log(`TextTrack API에서 활성 자막 ${foundElements.length}개 찾음:`, 
-                 foundElements.map(el => el.textContent));
       return foundElements;
     }
   } // End of "if (videoElement && videoElement.textTracks)" block
-  
-  console.log('TextTrack API에서 자막을 찾지 못했거나 활성 큐가 없습니다. DOM 검색으로 대체합니다.');
 
   let domSearchNode: Element | Document = subtitleContainer; // Default to the passed subtitleContainer
 
@@ -280,9 +276,6 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
   
   // 3단계: 이중 자막 구성
   if (validKoreanElements.length > 0 || validEnglishElements.length > 0) {
-    console.log('이중 자막 모드 활성화');
-    console.log(`유효한 한국어 자막: ${validKoreanElements.length}개`);
-    console.log(`유효한 영어 자막: ${validEnglishElements.length}개`);
     
     // 원본 자막 요소도 추적을 위해 추가
     if (validKoreanElements.length > 0) {
@@ -327,7 +320,6 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
   }
   
   // 4단계: 언어별 자막을 찾지 못한 경우 기존 로직 사용
-  console.log('언어별 자막을 찾지 못함. 기존 로직으로 대체...');
   
   const generalSelectors = [
     '.vjs-text-track-cue', // 기본 video.js 자막 큐
@@ -345,13 +337,11 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
       const validElements = getValidSubtitleElements(elements);
       
       if (validElements.length > 0) {
-        console.log(`자막 요소 찾음: ${selector}`, validElements);
         return validElements;
       }
     }
   }
   
-  console.log('활성 자막 요소를 찾지 못했습니다.');
   return [];
 }
 

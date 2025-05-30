@@ -75,8 +75,6 @@ export default class SubtitleObserver {
   private processCurrentSubtitles = (): void => {
     const activeSubtitleElements = findActiveSubtitles(this.subtitleContainer);
     
-    console.log('활성 자막 요소 수:', activeSubtitleElements.length);
-    
     if (activeSubtitleElements.length === 0) {
       if (this.currentSubtitles.length > 0) {
         this.currentSubtitles = [];
@@ -88,8 +86,6 @@ export default class SubtitleObserver {
     const newSubtitles = activeSubtitleElements
       .map(el => extractSubtitleInfo(el, this.videoElement))
       .filter((info): info is SubtitleInfo => info !== null);
-    
-    console.log('추출된 자막 정보:', newSubtitles);
     
     if (newSubtitles.length > 0) {
       this.currentSubtitles = newSubtitles;

@@ -362,3 +362,204 @@ function cleanupExtension() {
 
 // 언마운트 시 정리
 window.addEventListener('beforeunload', cleanupExtension);
+
+// 자막 저장 관련 타입 정의
+interface SavedSubtitle {
+  id: string;
+  primaryText: string;
+  secondaryText: string;
+  timestamp: number;
+  episodeTitle?: string;
+  savedAt?: string;
+}
+
+// 자막 클릭 이벤트 처리를 위한 전역 이벤트 리스너 추가
+document.addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  
+  // 자막 요소 확인 (play-learneng-subtitle-text 클래스를 가진 요소)
+  if (target && target.classList && 
+      (target.classList.contains('play-learneng-subtitle-text') || 
+       (target.className && target.className.includes('play-learneng-subtitle-')))) {
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    console.log('자막 요소 클릭됨:', target.textContent);
+    
+    // 클릭된 요소 정보
+    console.log('클릭한 요소 정보:', {
+      tagName: target.tagName,
+      id: target.id,
+      className: target.className,
+      textContent: target.textContent
+    });
+    
+    // 클릭된 자막이 한국어인지 영어인지 확인
+    const isKorean = target.className.includes('subtitle-ko');
+    const isEnglish = target.className.includes('subtitle-en');
+    
+    // 상대 언어 자막 찾기
+    let pairSubtitleText = '';
+    if (target.parentElement) {
+      const siblingElements = Array.from(target.parentElement.children);
+      
+      if (isKorean) {
+        // 한국어 자막이 클릭된 경우 영어 자막 찾기
+        const englishElement = siblingElements.find(el => 
+          el.className && el.className.includes('subtitle-en')
+        ) as HTMLElement | undefined;
+        pairSubtitleText = englishElement?.textContent || '';
+      } else if (isEnglish) {
+        // 영어 자막이 클릭된 경우 한국어 자막 찾기
+        const koreanElement = siblingElements.find(el => 
+          el.className && el.className.includes('subtitle-ko')
+        ) as HTMLElement | undefined;
+        pairSubtitleText = koreanElement?.textContent || '';
+      }
+    }
+    
+    const subtitleText = target.textContent || '';
+    const koreanText = isKorean ? subtitleText : pairSubtitleText;
+    const englishText = isEnglish ? subtitleText : pairSubtitleText;
+    
+    console.log('감지된 자막:', { koreanText, englishText });
+    
+    if (!koreanText && !englishText) {
+      console.warn('저장할 자막 텍스트를 찾을 수 없습니다.');
+      return;
+    }
+    
+    // 비디오 시간 가져오기
+    let currentTime = 0;
+    const videoElement = document.querySelector('video');
+    if (videoElement) {
+      currentTime = videoElement.currentTime;
+    }
+    
+    // 자막 저장
+    saveSubtitleToStorage({
+      primaryText: koreanText || '',
+      secondaryText: englishText || '',
+      timestamp: currentTime
+    });
+  }
+}, true);
+
+// 자막을 저장소에 저장하는 함수
+function saveSubtitleToStorage(subtitle: { primaryText: string; secondaryText: string; timestamp: number }) {
+  // 고유 ID 생성
+  const uniqueId = `subtitle_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  
+  const reviewSubtitle: SavedSubtitle = {
+    id: uniqueId,
+    primaryText: subtitle.primaryText,
+    secondaryText: subtitle.secondaryText,
+    timestamp: subtitle.timestamp,
+    episodeTitle: document.title || '미지정',
+    savedAt: new Date().toISOString()
+  };
+  
+  console.log('자막을 저장소에 저장:', reviewSubtitle);
+  
+  // 로컬 스토리지에 먼저 저장 (백업)
+  chrome.storage.local.set({ 
+    lastSavedSubtitle: reviewSubtitle 
+  });
+  
+  // 동기화 스토리지에서 기존 자막 가져오기
+  chrome.storage.sync.get(['savedSubtitles'], (data) => {
+    let savedSubtitles = data.savedSubtitles as SavedSubtitle[] || [];
+    
+    // 배열이 아니라면 배열로 초기화
+    if (!Array.isArray(savedSubtitles)) {
+      savedSubtitles = [];
+    }
+    
+    // 새 자막을 배열 앞에 추가
+    savedSubtitles.unshift(reviewSubtitle);
+    
+    // 용량 제한을 피하기 위해 최대 100개만 유지
+    if (savedSubtitles.length > 100) {
+      savedSubtitles = savedSubtitles.slice(0, 100);
+    }
+    
+    // 스토리지에 저장
+    chrome.storage.sync.set({ savedSubtitles }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('스토리지 저장 오류:', chrome.runtime.lastError);
+        
+        // 실패 시 로컬 스토리지에 저장
+        chrome.storage.local.set({ savedSubtitles }, () => {
+          showFeedback('저장소 오류로 로컬에만 저장되었습니다', false);
+        });
+      } else {
+        console.log('자막이 성공적으로 저장되었습니다');
+        
+        // 한글 텍스트 우선 표시
+        const displayText = subtitle.primaryText || subtitle.secondaryText;
+        const shortDisplayText = displayText.substring(0, 15) + (displayText.length > 15 ? '...' : '');
+        
+        showFeedback(`"${shortDisplayText}" 저장됨!`, true);
+      }
+    });
+  });
+}
+
+// 사용자에게 피드백 보여주기
+function showFeedback(message: string, isSuccess: boolean) {
+  // 기존 피드백 제거
+  const existingFeedback = document.getElementById('play-learneng-feedback');
+  if (existingFeedback && existingFeedback.parentNode) {
+    existingFeedback.parentNode.removeChild(existingFeedback);
+  }
+  
+  // 새 피드백 요소 생성
+  const feedbackElement = document.createElement('div');
+  feedbackElement.id = 'play-learneng-feedback';
+  
+  feedbackElement.innerHTML = `
+    <span style="margin-right: 8px">${isSuccess ? '✅' : '⚠️'}</span>
+    <span>${message}</span>
+  `;
+  
+  // 스타일 적용
+  Object.assign(feedbackElement.style, {
+    position: 'fixed',
+    top: '50px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    padding: '10px 20px',
+    backgroundColor: isSuccess ? 'rgba(25, 135, 84, 0.85)' : 'rgba(220, 53, 69, 0.85)',
+    color: '#fff',
+    borderRadius: '6px',
+    fontWeight: 'bold',
+    zIndex: '10000',
+    transition: 'all 0.3s ease',
+    opacity: '0',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.15)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '16px'
+  });
+  
+  document.body.appendChild(feedbackElement);
+  
+  // 애니메이션 효과
+  setTimeout(() => {
+    feedbackElement.style.opacity = '1';
+  }, 10);
+  
+  // 일정 시간 후 제거
+  setTimeout(() => {
+    if (feedbackElement) {
+      feedbackElement.style.opacity = '0';
+      setTimeout(() => {
+        if (feedbackElement && feedbackElement.parentNode) {
+          feedbackElement.parentNode.removeChild(feedbackElement);
+        }
+      }, 300);
+    }
+  }, 2000);
+}
