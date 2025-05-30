@@ -6,7 +6,8 @@ import PlayerController from '../components/player/PlayerController';
 
 // 디버깅 도구 임포트
 import { analyzeVideoPlayerDOM, highlightSubtitleElements } from '../utils/debugDomStructure';
-import { interceptSubtitleRequests, fetchSubtitleManually } from '../utils/subtitleCapturer';
+// import { interceptSubtitleRequests, fetchSubtitleManually } from '../utils/subtitleCapturer'; // chrome.debugger 사용으로 주석 처리
+import { fetchSubtitleManually, parseVTT } from '../utils/subtitleCapturer'; // parseVTT 임포트 추가
 import vttSubtitleManager from '../services/subtitles/vttSubtitleService';
 import { cleanupExtensionResources, restoreOriginalSubtitles } from '../utils/cleanupHelper';
 // 자막 트랙 관리 유틸리티 추가
@@ -19,6 +20,14 @@ console.log('Play LearnEng Content Script Loaded');
  */
 async function initialize() {
   console.log('Play LearnEng: 초기화 중...');
+  
+  // 백그라운드 스크립트에 컨텐트 스크립트 준비 완료 알림
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' });
+    console.log('[Content Script] Background notified of readiness:', response);
+  } catch (error) {
+    console.error('[Content Script] Error notifying background of readiness:', error);
+  }
   
   // 디버깅: 쿠팡 플레이 DOM 구조 분석 실행
   console.log('DOM 분석 결과:', analyzeVideoPlayerDOM());
@@ -56,12 +65,45 @@ async function initialize() {
     console.log(highlightSubtitleElements());
   }, 5000); // 5초 후에 강조 표시 (페이지 로드 완료 후)
   
-  // 자막 요청 인터셉션 초기화
-  console.log('자막 인터셉션 초기화 중...');
-  interceptSubtitleRequests();
+  // 자막 요청 인터셉션 초기화 (chrome.debugger 사용으로 주석 처리)
+  // console.log('자막 인터셉션 초기화 중...');
+  // interceptSubtitleRequests();
   
-  // VTT 자막 매니저 초기화
-  vttSubtitleManager.start();
+  // VTT 자막 매니저 초기화 (chrome.debugger 사용으로 주석 처리 또는 로직 변경 필요)
+  // vttSubtitleManager.start(); 
+  // TODO: VTTSubtitleManager가 백그라운드로부터 받은 VTT 데이터를 사용하도록 수정 필요
+  console.log('[Content Script] VTTSubtitleManager 시작은 chrome.debugger 결과를 받아 처리하도록 변경 예정');
+
+  // 백그라운드로부터 VTT 데이터 수신 리스너
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "VTT_RECEIVED") {
+      console.log('[Content Script] VTT_RECEIVED from background:', message.payload);
+      const { url, vtt, lang, videoId } = message.payload;
+      
+      try {
+        const cues = parseVTT(vtt);
+        console.log(`[Content Script] Parsed VTT from background: ${cues.length} cues (${lang})`);
+        
+        // VTTSubtitleManager를 통해 자막 데이터 업데이트
+        if (vttSubtitleManager.processCapturedVTT) {
+           vttSubtitleManager.processCapturedVTT({ url, content: vtt, cues, language: lang });
+        } else {
+          console.warn('[Content Script] vttSubtitleManager.processCapturedVTT method not found. Manual processing needed.');
+          // 수동으로 primary/secondary subtitle 업데이트 로직 (임시)
+          if (lang === 'ko') {
+            console.log('[Content Script] Received Korean VTT, needs method to set in VTTManager');
+          } else if (lang === 'en') {
+            console.log('[Content Script] Received English VTT, needs method to set in VTTManager');
+          }
+        }
+
+      } catch (error) {
+        console.error('[Content Script] Error processing VTT from background:', error);
+      }
+      sendResponse({ success: true });
+    }
+    return true;
+  });
   
   // 쿠팡플레이 기본 자막 비활성화
   hideOriginalSubtitles();
@@ -176,8 +218,7 @@ setupPageChangeDetection();
   analyzeDOM: analyzeVideoPlayerDOM,
   highlightSubtitles: highlightSubtitleElements,
   
-  // 자막 캡처 기능 추가
-  interceptSubtitles: interceptSubtitleRequests,
+  // 자막 캡처 기능 추가 (interceptSubtitles는 chrome.debugger로 대체되어 제거)
   fetchSubtitle: fetchSubtitleManually,
   vttManager: vttSubtitleManager,
   

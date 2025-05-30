@@ -31,7 +31,8 @@ export default defineManifest({
       js: ['src/content/index.tsx'],
     },
   ],
-  permissions: ['storage', 'tabs'],
+  permissions: ['storage', 'tabs', 'debugger', 'webRequest'],
+  host_permissions: ['*://*.coupangstreaming.com/*', '*://*.coupangplay.com/*'],
   web_accessible_resources: [
     {
       resources: ['assets/*'],

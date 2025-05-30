@@ -32,6 +32,10 @@ interface SubtitleState {
   currentVideoTitle: string | null;
   activeSubtitles: ActiveSubtitle | null;
   
+  // 한국어/영어 자막 분리
+  koreanSubtitle: string | null;
+  englishSubtitle: string | null;
+  
   // 저장된 자막
   savedSubtitles: Array<SubtitleItem>;
   
@@ -44,6 +48,8 @@ interface SubtitleState {
   setIsPlaying: (isPlaying: boolean) => void;
   setCurrentVideo: (videoId: string, title: string) => void;
   setActiveSubtitles: (subtitle: ActiveSubtitle | null) => void;
+  setKoreanSubtitle: (text: string | null) => void;
+  setEnglishSubtitle: (text: string | null) => void;
   saveSubtitle: (subtitle: SubtitleItem) => void;
   removeSavedSubtitle: (id: string) => void;
 }
@@ -56,16 +62,14 @@ const useSubtitleStore = create<SubtitleState>()(
       // 설정 (기본값)
       primaryLanguage: 'ko',
       secondaryLanguage: 'en',
-      displayMode: 'dual',
-      subtitleSync: 0,  // 자막 동기화 초기값
-      
-      // 현재 상태
+      displayMode: 'dual' as const,
+      subtitleSync: 0,
       isPlaying: false,
       currentVideoId: null,
       currentVideoTitle: null,
       activeSubtitles: null,
-      
-      // 저장된 자막
+      koreanSubtitle: null,
+      englishSubtitle: null,
       savedSubtitles: [],
       
       // 액션
@@ -85,6 +89,8 @@ const useSubtitleStore = create<SubtitleState>()(
         currentVideoTitle: title 
       }),
       setActiveSubtitles: (subtitle) => set({ activeSubtitles: subtitle }),
+  setKoreanSubtitle: (text) => set({ koreanSubtitle: text }),
+  setEnglishSubtitle: (text) => set({ englishSubtitle: text }),
       saveSubtitle: (subtitle) => set((state) => ({ 
         savedSubtitles: [...state.savedSubtitles, subtitle] 
       })),
@@ -101,6 +107,8 @@ const useSubtitleStore = create<SubtitleState>()(
         displayMode: state.displayMode,
         subtitleSync: state.subtitleSync,
         savedSubtitles: state.savedSubtitles,
+        koreanSubtitle: state.koreanSubtitle,
+        englishSubtitle: state.englishSubtitle,
       }),
     }
   )

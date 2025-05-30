@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import useSubtitleStore from '../../store/subtitleStore';
 
 interface DualSubtitlesProps {
@@ -8,80 +8,118 @@ interface DualSubtitlesProps {
 
 const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) => {
   const { 
-    activeSubtitles, 
-    displayMode, 
-    primaryLanguage, 
-    secondaryLanguage 
+    koreanSubtitle,
+    englishSubtitle,
+    displayMode,
+    primaryLanguage,
+    secondaryLanguage,
+    setKoreanSubtitle,
+    setEnglishSubtitle
   } = useSubtitleStore();
   
-  // 디버깅 모드에서만 소스 표시
-  const [showSource, setShowSource] = React.useState<boolean>(false);
+  // 자막 컨테이너 참조
+  const containerRef = useRef<HTMLDivElement>(null);
   
-  // 자막 변경시 DOM 자막 요소 생성/업데이트
-  React.useEffect(() => {
-    if (activeSubtitles) {
-      updateDOMSubtitles(activeSubtitles, displayMode);
+  // 자막 업데이트 함수
+  const updateSubtitles = useCallback(() => {
+    // 자막 컨테이너 찾기 (없으면 생성)
+    let container = containerRef.current;
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'play-learneng-subtitle-container';
+      container.style.position = 'fixed';
+      container.style.bottom = '80px';
+      container.style.left = '0';
+      container.style.right = '0';
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.alignItems = 'center';
+      container.style.justifyContent = 'center';
+      container.style.zIndex = '9999';
+      container.style.pointerEvents = 'none';
+      container.style.padding = '0 20px';
+      container.style.boxSizing = 'border-box';
+      document.body.appendChild(container);
+      // containerRef.current는 readonly이므로 직접 할당하지 않고 ref 콜백 사용
+      if (!containerRef.current) {
+        (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = container;
+      }
     }
-  }, [activeSubtitles, displayMode]);
-  
-  // 실제 DOM 자막 요소 업데이트 함수
-  const updateDOMSubtitles = (subtitle: any, mode: string) => {
-    // 자막 컨테이너 찾기
-    let container = document.getElementById('play-learneng-subtitle-container');
-    if (!container) return;
     
     // 컨테이너 내용 비우기
     container.innerHTML = '';
     
-    // 현재 표시 모드에 따른 자막 DOM 생성
-    if (mode === 'dual' || mode === 'primary') {
-      const primaryElement = document.createElement('div');
-      primaryElement.className = 'play-learneng-subtitle-text play-learneng-subtitle-ko';
-      primaryElement.textContent = subtitle.primaryText;
-      
-      // 스크린샷에 맞는 스타일
-      primaryElement.style.cssText = `
-        background-color: rgba(0, 0, 0, 0.5);
-        color: #ffffff;
-        padding: 4px 10px;
-        margin-bottom: 5px;
-        border-radius: 4px;
-        font-size: 20px;
-        font-weight: 500;
-        max-width: 90%;
-        text-align: center;
-        line-height: 1.4;
-        white-space: pre-wrap;
-      `;
-      
-      container.appendChild(primaryElement);
+    // 한국어 자막 표시 (주 자막)
+    if ((displayMode === 'dual' || displayMode === 'primary') && koreanSubtitle) {
+      renderSubtitle(container, koreanSubtitle, {
+        color: '#ffffff',
+        fontSize: '20px',
+        marginBottom: '5px',
+        fontWeight: '500'
+      });
     }
     
-    if (mode === 'dual' || mode === 'secondary') {
-      const secondaryElement = document.createElement('div');
-      secondaryElement.className = 'play-learneng-subtitle-text play-learneng-subtitle-en';
-      secondaryElement.textContent = subtitle.secondaryText;
-      
-      // 스크린샷에 맞는 스타일
-      secondaryElement.style.cssText = `
-        background-color: rgba(0, 0, 0, 0.5);
-        color: #56c7ff;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 18px;
-        font-weight: 400;
-        max-width: 90%;
-        text-align: center;
-        line-height: 1.4;
-        white-space: pre-wrap;
-        margin-bottom: 0;
-      `;
-      
-      container.appendChild(secondaryElement);
+    // 영어 자막 표시 (보조 자막)
+    if ((displayMode === 'dual' || displayMode === 'secondary') && englishSubtitle) {
+      renderSubtitle(container, englishSubtitle, {
+        color: '#56c7ff',
+        fontSize: '18px',
+        marginBottom: '0',
+        fontWeight: '400'
+      });
     }
+  }, [displayMode, koreanSubtitle, englishSubtitle, primaryLanguage, secondaryLanguage]);
+  
+  // 자막 렌더링 함수
+  const renderSubtitle = (container: HTMLElement, text: string, style: React.CSSProperties) => {
+    const element = document.createElement('div');
+    element.className = 'play-learneng-subtitle-text';
+    element.textContent = text;
+    
+    // 스타일 적용
+    Object.assign(element.style, {
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      padding: '4px 10px',
+      borderRadius: '4px',
+      maxWidth: '90%',
+      textAlign: 'center',
+      lineHeight: '1.4',
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word',
+      ...style
+    });
+    
+    container.appendChild(element);
   };
   
-  // 이 컴포넌트는 실제 UI를 렌더링하지 않고 DOM 조작만 수행
+  // 자막 변경 감지 및 업데이트
+  useEffect(() => {
+    updateSubtitles();
+    
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      const container = containerRef.current;
+      if (container && container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+    };
+  }, [updateSubtitles]);
+  
+  // 자막 추출 로직 (기존 자막 감지 로직과 연동)
+  useEffect(() => {
+    if (source === 'vtt') {
+      // VTT 소스에서 자막 추출 (기존 로직과 연동)
+      const detectAndExtractSubtitles = () => {
+        // 기존 자막 감지 로직과 연동
+        // ...
+      };
+      
+      const interval = setInterval(detectAndExtractSubtitles, 500);
+      return () => clearInterval(interval);
+    }
+  }, [source]);
+
+  // 컴포넌트 반환 (React 컴포넌트로 수정)
   return null;
 };
 

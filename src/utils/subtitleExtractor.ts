@@ -1,6 +1,32 @@
+import useSubtitleStore from '../store/subtitleStore';
+
 /**
  * 자막 텍스트 추출 및 처리를 위한 유틸리티
  */
+
+// 자막 언어 감지 (한국어/영어/기타)
+function detectLanguage(text: string): 'ko' | 'en' | 'other' {
+  // 한국어 정규식 (가-힣, ㄱ-ㅎ, ㅏ-ㅣ, 완성형 한글)
+  const koreanRegex = /[\u3131-\u318E\uAC00-\uD7A3]/;
+  // 영어 정규식 (A-Za-z)
+  const englishRegex = /[A-Za-z]/;
+  
+  const hasKorean = koreanRegex.test(text);
+  const hasEnglish = englishRegex.test(text);
+  
+  if (hasKorean) return 'ko';
+  if (hasEnglish) return 'en';
+  return 'other';
+}
+
+// 자막 텍스트 정제
+function cleanSubtitleText(text: string): string {
+  if (!text) return '';
+  // 불필요한 공백 제거 및 정규화
+  return text
+    .replace(/\s+/g, ' ') // 다중 공백을 하나로
+    .trim();
+}
 
 /**
  * 자막 정보 인터페이스
@@ -16,21 +42,27 @@ export interface SubtitleInfo {
 /**
  * 쿠팡 플레이 자막 요소에서 자막 텍스트 추출
  */
-export function extractSubtitleText(subtitleElement: Element): string | null {
+export function extractSubtitleText(subtitleElement: Element): { text: string; language: 'ko' | 'en' | 'other' } | null {
   if (!subtitleElement) return null;
   
   // "Play Video"인 경우 필터링 (쿠팡플레이 제어 텍스트)
-  const rawText = subtitleElement.textContent?.trim();
+  const rawText = cleanSubtitleText(subtitleElement.textContent || '');
   if (!rawText) return null;
   
-  if (rawText === 'Play Video' || rawText === '재생' || rawText === '일시정지') {
+  // 컨트롤 텍스트 필터링
+  const controlTexts = ['Play Video', '재생', '일시정지', '정지', '일시 중지'];
+  if (controlTexts.includes(rawText)) {
     console.log('컨트롤 텍스트 감지되어 무시:', rawText);
     return null;
   }
   
   // 단순 텍스트만 있을 경우
   if (subtitleElement.childElementCount === 0) {
-    return rawText;
+    const language = detectLanguage(rawText);
+    return {
+      text: rawText,
+      language: language as 'ko' | 'en' | 'other'
+    };
   }
   
   // 자식 요소를 가진 복잡한 구조의 자막일 경우 (예: 스타일링된 자막)
@@ -39,8 +71,8 @@ export function extractSubtitleText(subtitleElement: Element): string | null {
   // 텍스트 노드 누적
   const extractText = (element: Element | ChildNode): void => {
     if (element.nodeType === Node.TEXT_NODE) {
-      const text = element.textContent?.trim();
-      if (text && text !== 'Play Video' && text !== '재생' && text !== '일시정지') {
+      const text = cleanSubtitleText(element.textContent || '');
+      if (text && !controlTexts.some(ctrl => text.includes(ctrl))) {
         textFragments.push(text);
       }
       return;
@@ -48,19 +80,25 @@ export function extractSubtitleText(subtitleElement: Element): string | null {
     
     // HTML 요소인 경우 자식들을 재귀적으로 처리
     if (element.nodeType === Node.ELEMENT_NODE) {
-      if (element.nodeName === 'BR') {
+      const elem = element as HTMLElement;
+      
+      // 줄바꿈 처리
+      if (elem.tagName === 'BR' || elem.tagName === 'br') {
         textFragments.push('\n');
       }
       
-      // 쿠팡플레이 영상제어 관련 요소인지 확인
-      const elem = element as Element;
-      const isControlElement = 
-        elem.getAttribute('aria-label')?.includes('재생') || 
-        elem.getAttribute('aria-label')?.includes('play') ||
-        elem.className.includes('control') ||
-        elem.className.includes('button');
+      // 컨트롤 요소 필터링
+      const isControlElement = [
+        'BUTTON', 'A', 'svg', 'path', 'use', 'g', 'rect', 
+        'circle', 'polygon', 'line', 'polyline', 'ellipse', 'image'
+      ].some(tag => 
+        elem.tagName === tag || 
+        (elem.closest && elem.closest(tag)) ||
+        (elem.classList && elem.classList.toString().includes('control')) ||
+        elem.getAttribute('role') === 'button' ||
+        (elem.getAttribute('aria-label')?.match(/(재생|일시정지|play|pause|volume|mute|fullscreen|controls?)/i))
+      );
       
-      // 컨트롤 요소가 아닌 경우에만 텍스트 추출
       if (!isControlElement) {
         for (const child of Array.from(element.childNodes)) {
           extractText(child);
@@ -70,10 +108,17 @@ export function extractSubtitleText(subtitleElement: Element): string | null {
   };
   
   extractText(subtitleElement);
-  const result = textFragments.join(' ');
+  const result = textFragments.join(' ').replace(/\s+/g, ' ').trim();
   
-  console.log('자막 텍스트 추출 결과:', result);
-  return result || null;
+  if (!result) return null;
+  
+  const language = detectLanguage(result);
+  console.log('자막 추출 결과:', { text: result, language });
+  
+  return {
+    text: result,
+    language: language as 'ko' | 'en' | 'other'
+  };
 }
 
 /**
@@ -82,14 +127,24 @@ export function extractSubtitleText(subtitleElement: Element): string | null {
 export function extractSubtitleInfo(subtitleElement: Element, videoPlayer: HTMLVideoElement): SubtitleInfo | null {
   if (!subtitleElement) return null;
   
-  const text = extractSubtitleText(subtitleElement);
-  if (!text) return null;
+  const extracted = extractSubtitleText(subtitleElement);
+  if (!extracted) return null;
+  
+  const { text, language } = extracted;
+  
+  // 자막 스토어에 언어별로 저장
+  const store = useSubtitleStore.getState();
+  if (language === 'ko') {
+    store.setKoreanSubtitle(text);
+  } else if (language === 'en') {
+    store.setEnglishSubtitle(text);
+  }
   
   // 기본 정보로 자막 객체 생성
   return {
     text,
-    isActive: true, // 볼 수 있는 자막은 활성 상태로 간주
-    // startTime과 endTime은 자막 요소에 timestamp 정보가 포함되어 있다면 추출 가능
+    language,
+    isActive: true,
     startTime: videoPlayer.currentTime,
   };
 }

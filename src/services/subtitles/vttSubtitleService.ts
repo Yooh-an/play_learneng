@@ -9,7 +9,7 @@ interface SubtitleCue {
   text: string;
 }
 
-interface CapturedSubtitle {
+export interface CapturedSubtitle { // export 추가
   url: string;
   content: string;
   cues: SubtitleCue[];
@@ -109,21 +109,78 @@ export class VTTSubtitleManager {
    * 자막 감지 시작
    */
   public start(): void {
-    if (this.interceptActive) return;
+    // if (this.interceptActive) return; // interceptActive 플래그는 더 이상 fetch 가로채기에 사용되지 않음
+    // this.interceptActive = true;
+    // this.setupInterception(); // chrome.debugger 사용으로 fetch 가로채기 로직 제거
     
-    this.interceptActive = true;
-    this.setupInterception();
-    
-    console.log('VTT 자막 매니저가 시작되었습니다.');
+    console.log('VTT 자막 매니저가 시작되었습니다. (chrome.debugger로부터 데이터 수신 대기)');
   }
   
   /**
    * 자막 감지 중지
    */
   public stop(): void {
-    this.interceptActive = false;
+    // this.interceptActive = false; // interceptActive 플래그는 더 이상 fetch 가로채기에 사용되지 않음
     console.log('VTT 자막 매니저가 중지되었습니다.');
-    // 실제 fetch 가로채기 해제는 페이지를 새로고침해야 함
+  }
+
+  /**
+   * 백그라운드 스크립트로부터 캡처된 VTT 데이터를 처리하는 메소드
+   */
+  public processCapturedVTT(subtitleData: CapturedSubtitle): void {
+    if (!subtitleData || !subtitleData.cues) {
+      console.warn('[VTTSubtitleManager] Invalid subtitle data received from background.');
+      this.listeners.forEach(listener => {
+        listener.onSubtitleError(new Error('Invalid subtitle data received'));
+      });
+      return;
+    }
+
+    const { url, content, cues, language } = subtitleData;
+    console.log(`[VTTSubtitleManager] Processing VTT data from background: ${url}, lang: ${language}, cues: ${cues.length}`);
+
+    const subtitle: CapturedSubtitle = {
+      url,
+      content,
+      cues,
+      language
+    };
+
+    // 언어에 따라 다르게 저장 (기존 로직과 유사하게)
+    if (language === 'ko') {
+      this.primarySubtitle = subtitle;
+      console.log('[VTTSubtitleManager] 한국어 자막이 primarySubtitle으로 설정됨 (from background)');
+    } else if (language === 'en') {
+      this.secondarySubtitle = subtitle;
+      console.log('[VTTSubtitleManager] 영어 자막이 secondarySubtitle으로 설정됨 (from background)');
+    } else {
+      // 언어를 판별할 수 없는 경우 (기존 로직 참고)
+      const hasKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(content);
+      const hasEnglish = /[a-zA-Z]/.test(content);
+      
+      if (hasKorean && !this.primarySubtitle) {
+        this.primarySubtitle = subtitle;
+        console.log('[VTTSubtitleManager] 내용 분석 결과 한국어 자막으로 판단하여 primarySubtitle으로 설정됨 (from background)');
+      } else if (hasEnglish && !this.secondarySubtitle) {
+        this.secondarySubtitle = subtitle;
+        console.log('[VTTSubtitleManager] 내용 분석 결과 영어 자막으로 판단하여 secondarySubtitle으로 설정됨 (from background)');
+      } else {
+        if (!this.primarySubtitle) {
+          this.primarySubtitle = subtitle;
+          console.log('[VTTSubtitleManager] 기본값으로 primarySubtitle으로 설정됨 (from background)');
+        } else if (!this.secondarySubtitle) {
+          this.secondarySubtitle = subtitle;
+          console.log('[VTTSubtitleManager] 기본값으로 secondarySubtitle으로 설정됨 (from background)');
+        }
+      }
+    }
+
+    // 리스너에게 알림
+    this.listeners.forEach(listener => {
+      listener.onSubtitleLoaded(subtitle);
+    });
+
+    console.log(`[VTTSubtitleManager] 자막 파일이 로드 및 처리되었습니다: ${language}, ${cues.length}개의 큐 (from background)`);
   }
   
   /**
@@ -178,104 +235,11 @@ export class VTTSubtitleManager {
   private _lastLogTime: number = 0;
   
   /**
-   * fetch API 가로채기 설정
+   * fetch API 가로채기 설정 (chrome.debugger 사용으로 더 이상 사용되지 않음)
    */
   private setupInterception(): void {
-    if (typeof window === 'undefined' || !window.fetch) return;
-    
-    const originalFetch = window.fetch;
-    const self = this;
-    
-    window.fetch = async function(input, init) {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      const response = await originalFetch.apply(this, [input, init]);
-      
-      if (self.interceptActive && url.includes('subtitle') && url.includes('.vtt')) {
-        try {
-          const clonedResponse = response.clone();
-          const content = await clonedResponse.text();
-          const cues = parseVTT(content);
-          
-          // 자막 언어 감지 로직 개선 및 디버깅 로깅 추가
-          let language = 'unknown';
-          
-          console.log(`자막 URL 분석: ${url}`);
-          
-          // 1. URL에서 언어 코드 추출 시도 - 더 포괄적인 패턴 추가
-          if (url.includes('-ko') || url.includes('ko-') || url.includes('korean') || url.includes('kor') || 
-              url.includes('ko.vtt') || url.includes('.ko.') || url.includes('Korean') || url.includes('KOR')) {
-            language = 'ko';
-            console.log(`한국어 자막 감지됨 (URL): ${url}`);
-          } else if (url.includes('-en') || url.includes('en-') || url.includes('english') || url.includes('eng') || 
-                    url.includes('en.vtt') || url.includes('.en.') || url.includes('English') || url.includes('ENG')) {
-            language = 'en';
-            console.log(`영어 자막 감지됨 (URL): ${url}`);
-          } 
-          // 2. 언어 감지가 되지 않으면 콘텐츠 분석
-          else {
-            // 임시로 콘텐츠의 일부 표시 
-            console.log(`자막 내용 샘플: ${content.substring(0, 100)}...`);
-            language = detectLanguageFromContent(content, cues);
-            console.log(`URL 기반 언어 감지 실패, 콘텐츠 분석 결과: ${language}, URL: ${url}`);
-          }
-          
-          console.log(`자막 언어 감지: ${language} (${url})`);
-          
-          const subtitle = {
-            url,
-            content,
-            cues,
-            language
-          };
-          
-          // 언어에 따라 다르게 저장
-          if (language === 'ko') {
-            self.primarySubtitle = subtitle;
-            console.log('한국어 자막이 primarySubtitle으로 설정됨');
-          } else if (language === 'en') {
-            self.secondarySubtitle = subtitle;
-            console.log('영어 자막이 secondarySubtitle으로 설정됨');
-          } else {
-            // 언어를 판별할 수 없는 경우 내용 분석
-            const hasKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(content);
-            const hasEnglish = /[a-zA-Z]/.test(content);
-            
-            if (hasKorean && !self.primarySubtitle) {
-              self.primarySubtitle = subtitle;
-              console.log('내용 분석 결과 한국어 자막으로 판단하여 primarySubtitle으로 설정됨');
-            } else if (hasEnglish && !self.secondarySubtitle) {
-              self.secondarySubtitle = subtitle;
-              console.log('내용 분석 결과 영어 자막으로 판단하여 secondarySubtitle으로 설정됨');
-            } else {
-              // 기본적으로 주 자막으로 설정 (이미 설정된 경우 보조 자막으로)
-              if (!self.primarySubtitle) {
-                self.primarySubtitle = subtitle;
-                console.log('기본값으로 primarySubtitle으로 설정됨');
-              } else if (!self.secondarySubtitle) {
-                self.secondarySubtitle = subtitle;
-                console.log('기본값으로 secondarySubtitle으로 설정됨');
-              }
-            }
-          }
-          
-          // 리스너에게 알림
-          self.listeners.forEach(listener => {
-            listener.onSubtitleLoaded(subtitle);
-          });
-          
-          console.log(`자막 파일이 로드되었습니다: ${language}, ${cues.length}개의 큐`);
-        } catch (error) {
-          console.error('자막 처리 중 오류:', error);
-          
-          // 오류 알림
-          self.listeners.forEach(listener => {
-            listener.onSubtitleError(error instanceof Error ? error : new Error(String(error)));
-          });
-        }
-      }
-      
-      return response;
-    };
+    // 이 메소드는 chrome.debugger API를 사용함에 따라 더 이상 호출되지 않습니다.
+    // console.log('[VTTSubtitleManager] setupInterception is deprecated.');
   }
 }
 
