@@ -285,8 +285,7 @@ const Popup = () => {
     isPlayerActive: boolean;
   }) => {
     const [selectedAnalysisLanguage, setSelectedAnalysisLanguage] = useState<'ko' | 'en'>('ko');
-
-    const subtitlesToDisplay = selectedAnalysisLanguage === 'ko' ? koreanSubs : englishSubs;
+    const [searchTerm, setSearchTerm] = useState('');
 
     const formatTime = (timeInSeconds: number) => {
       const minutes = Math.floor(timeInSeconds / 60);
@@ -294,9 +293,33 @@ const Popup = () => {
       return `${String(minutes).padStart(2, '0')}:${seconds.toFixed(3).padStart(6, '0')}`;
     };
 
+    const subtitlesToDisplayOriginal = selectedAnalysisLanguage === 'ko' ? koreanSubs : englishSubs;
+
+    const filteredSubtitles = subtitlesToDisplayOriginal.filter(sub => {
+      const formattedStartTime = formatTime(sub.startTime);
+      const formattedEndTime = formatTime(sub.endTime);
+      const searchTermLower = searchTerm.toLowerCase();
+
+      return (
+        sub.text.toLowerCase().includes(searchTermLower) ||
+        formattedStartTime.includes(searchTermLower) ||
+        formattedEndTime.includes(searchTermLower)
+      );
+    });
+
     return (
       <div className="p-4">
         <h3 className="text-lg font-semibold mb-4">스크립트 분석</h3>
+        
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="시간, 단어 또는 문장 검색..."
+            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
         
         <div className="flex border-b mb-4">
           <button 
@@ -325,9 +348,9 @@ const Popup = () => {
             <p className="font-medium">로드된 자막 데이터가 없습니다.</p>
             <p className="text-sm mt-1">쿠팡플레이 영상 페이지에서 자막이 로드되면 여기에 표시됩니다.</p>
           </div>
-        ) : subtitlesToDisplay.length > 0 ? (
-          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2"> {/* Adjusted max-h */}
-            {subtitlesToDisplay.map((sub) => (
+        ) : filteredSubtitles.length > 0 ? (
+          <div className="space-y-2 max-h-[260px] overflow-y-auto pr-2"> {/* Adjusted max-h to accommodate search bar */}
+            {filteredSubtitles.map((sub) => (
               <div 
                 key={sub.id} 
                 className={`p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors ${isPlayerActive ? 'cursor-pointer' : 'cursor-default'}`}
@@ -348,8 +371,12 @@ const Popup = () => {
         ) : (
           <div className="text-center py-10 text-gray-500">
             <div className="text-4xl mb-3">🤔</div>
-            <p className="font-medium">선택된 언어 ({selectedAnalysisLanguage === 'ko' ? '한국어' : '영어'})의 자막이 없습니다.</p>
-            <p className="text-sm mt-1">다른 언어 탭을 확인해보세요.</p>
+            <p className="font-medium">
+              {searchTerm ? `'${searchTerm}'에 대한 검색 결과가 없습니다.` : `선택된 언어 (${selectedAnalysisLanguage === 'ko' ? '한국어' : '영어'})의 자막이 없습니다.`}
+            </p>
+            <p className="text-sm mt-1">
+              {searchTerm ? '다른 검색어를 입력하거나 선택된 언어를 확인해보세요.' : '다른 언어 탭을 확인해보세요.'}
+            </p>
           </div>
         )}
       </div>
