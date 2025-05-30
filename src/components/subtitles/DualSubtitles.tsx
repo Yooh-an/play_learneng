@@ -76,16 +76,15 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
     element.className = 'play-learneng-subtitle-text';
     element.textContent = text;
     
-    // 스타일 적용
+    // 스타일 적용 (배경 제거하고 텍스트 그림자로 가독성 확보)
     Object.assign(element.style, {
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
       padding: '4px 10px',
-      borderRadius: '4px',
       maxWidth: '90%',
       textAlign: 'center',
       lineHeight: '1.4',
       whiteSpace: 'pre-wrap',
       wordBreak: 'break-word',
+      textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8)',
       ...style
     });
     

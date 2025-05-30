@@ -401,11 +401,11 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         primaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${primaryLanguage}`;
         primaryElement.textContent = primaryDisplay;
         primaryElement.style.cssText = `
-          background-color: rgba(0, 0, 0, 0.5);
           color: ${primaryLanguage === 'ko' ? '#ffffff' : '#56c7ff'};
-          padding: 4px 10px; margin-bottom: 5px; border-radius: 4px;
+          padding: 4px 10px; margin-bottom: 5px;
           font-size: 20px; font-weight: 500; max-width: 90%;
           text-align: center; line-height: 1.4; white-space: pre-wrap;
+          text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
         `;
         container.appendChild(primaryElement);
       }
@@ -417,11 +417,11 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLanguage}`;
         secondaryElement.textContent = secondaryDisplay;
         secondaryElement.style.cssText = `
-          background-color: rgba(0, 0, 0, 0.5);
           color: ${secondaryLanguage === 'en' ? '#56c7ff' : '#ffffff'};
-          padding: 4px 10px; border-radius: 4px;
+          padding: 4px 10px;
           font-size: 18px; font-weight: 400; max-width: 90%;
           text-align: center; line-height: 1.4; white-space: pre-wrap; margin-bottom: 0;
+          text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
         `;
         container.appendChild(secondaryElement);
       }

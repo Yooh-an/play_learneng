@@ -443,24 +443,21 @@ function renderDualSubtitle(container: HTMLElement, text: string | null, languag
   // 스크린샷과 일치하는 언어별 스타일링
   if (language === 'ko') {
     subtitleElement.style.cssText = `
-      background-color: rgba(0, 0, 0, 0.5);
       color: #ffffff;
       padding: 4px 10px;
       margin-bottom: 5px;
-      border-radius: 4px;
       font-size: 20px;
       font-weight: 500;
       max-width: 90%;
       text-align: center;
       line-height: 1.4;
       white-space: pre-wrap;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
     `;
   } else {
     subtitleElement.style.cssText = `
-      background-color: rgba(0, 0, 0, 0.5);
       color: #56c7ff; /* 스크린샷의 밝은 파란색 */
       padding: 4px 10px;
-      border-radius: 4px;
       font-size: 18px;
       font-weight: 400;
       max-width: 90%;
@@ -468,6 +465,7 @@ function renderDualSubtitle(container: HTMLElement, text: string | null, languag
       line-height: 1.4;
       white-space: pre-wrap;
       margin-bottom: 0;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
     `;
   }
   
@@ -1173,24 +1171,21 @@ function updateDualSubtitle(container: HTMLElement, text: string, language: 'ko'
     // 기존 스타일링 적용
     if (language === 'ko') {
       newElement.style.cssText = `
-        background-color: rgba(0, 0, 0, 0.5);
         color: #ffffff;
         padding: 4px 10px;
         margin-bottom: 5px;
-        border-radius: 4px;
         font-size: 20px;
         font-weight: 500;
         max-width: 90%;
         text-align: center;
         line-height: 1.4;
         white-space: pre-wrap;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
       `;
     } else {
       newElement.style.cssText = `
-        background-color: rgba(0, 0, 0, 0.5);
         color: #56c7ff; /* 스크린샷의 밝은 파란색 */
         padding: 4px 10px;
-        border-radius: 4px;
         font-size: 18px;
         font-weight: 400;
         max-width: 90%;
@@ -1198,6 +1193,7 @@ function updateDualSubtitle(container: HTMLElement, text: string, language: 'ko'
         line-height: 1.4;
         white-space: pre-wrap;
         margin-bottom: 0;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
       `;
     }
     
