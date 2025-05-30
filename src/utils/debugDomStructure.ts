@@ -124,9 +124,7 @@ function getElementPath(element: Element): string {
   return path.join(' > ');
 }
 
-/**
- * 페이지에서 자막이 있는 부분을 강조 표시합니다.
- */
+/* // 주석 처리 시작
 export function highlightSubtitleElements() {
   const possibleSubtitleContainers = [
     ...document.querySelectorAll('.subtitle'),
@@ -143,26 +141,24 @@ export function highlightSubtitleElements() {
   possibleSubtitleContainers.forEach((container) => {
     // 원래 스타일 백업
     const originalStyle = {
-      outline: container.style.outline,
-      backgroundColor: container.style.backgroundColor,
-      boxShadow: container.style.boxShadow
+      outline: (container as HTMLElement).style.outline,
+      backgroundColor: (container as HTMLElement).style.backgroundColor,
+      boxShadow: (container as HTMLElement).style.boxShadow
     };
     
     // 강조 스타일 적용
-    container.style.outline = '3px solid red';
-    container.style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
-    container.style.boxShadow = '0 0 10px rgba(255, 0, 0, 0.5)';
-    
-    // 콘솔에 정보 출력
-    console.log('강조 표시된 자막 요소:', container);
+    (container as HTMLElement).style.outline = '3px solid red';
+    (container as HTMLElement).style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
+    (container as HTMLElement).style.boxShadow = '0 0 10px rgba(255, 0, 0, 0.5)';
     
     // 10초 후 원래 스타일로 복원
     setTimeout(() => {
-      container.style.outline = originalStyle.outline;
-      container.style.backgroundColor = originalStyle.backgroundColor;
-      container.style.boxShadow = originalStyle.boxShadow;
+      (container as HTMLElement).style.outline = originalStyle.outline;
+      (container as HTMLElement).style.backgroundColor = originalStyle.backgroundColor;
+      (container as HTMLElement).style.boxShadow = originalStyle.boxShadow;
     }, 10000);
   });
   
   return `${possibleSubtitleContainers.length}개의 자막 요소를 강조 표시했습니다. 10초 동안 빨간색으로 표시됩니다.`;
 }
+*/ // 주석 처리 끝

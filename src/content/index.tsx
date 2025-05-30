@@ -5,7 +5,7 @@ import { detectPlayerWithRetry, watchPageChanges, extractVideoInfo, hideOriginal
 import PlayerController from '../components/player/PlayerController';
 
 // 디버깅 도구 임포트
-import { analyzeVideoPlayerDOM, highlightSubtitleElements } from '../utils/debugDomStructure';
+import { analyzeVideoPlayerDOM } from '../utils/debugDomStructure'; // highlightSubtitleElements 제거
 // import { interceptSubtitleRequests, fetchSubtitleManually } from '../utils/subtitleCapturer'; // chrome.debugger 사용으로 주석 처리
 import { fetchSubtitleManually, parseVTT } from '../utils/subtitleCapturer'; // parseVTT 임포트 추가
 import vttSubtitleManager from '../services/subtitles/vttSubtitleService';
@@ -59,12 +59,7 @@ async function initialize() {
       console.log('활성화된 자막 텍스트:', activeSubtitles);
     }, 1000);
   }, 2000);
-  
-  // 디버깅: 감지된 자막 요소 강조 표시
-  setTimeout(() => {
-    console.log(highlightSubtitleElements());
-  }, 5000); // 5초 후에 강조 표시 (페이지 로드 완료 후)
-  
+
   // 자막 요청 인터셉션 초기화 (chrome.debugger 사용으로 주석 처리)
   // console.log('자막 인터셉션 초기화 중...');
   // interceptSubtitleRequests();
@@ -111,7 +106,24 @@ async function initialize() {
         console.error('[Content Script] Video element not found or timestamp invalid for JUMP_TO_TIME.');
         sendResponse({ success: false, error: 'Video element not found or timestamp invalid' });
       }
+    } else if (message.type === 'LE_GET_CURRENT_TIME') {
+      // Attempt to find the main video element on the page.
+      // This selector might need to be adjusted for Coupang Play or other target sites.
+      const videoElement = document.querySelector('video'); 
+      if (videoElement) {
+        sendResponse({ currentTime: videoElement.currentTime });
+      } else {
+        console.warn('LE_GET_CURRENT_TIME: Video element not found.');
+        sendResponse({ currentTime: 0 }); // Fallback or error indication
+      }
+      return true; // Required for asynchronous sendResponse
+    } else if (message.type === 'SETTINGS_UPDATED') {
+      // Handle settings update if needed in content script directly
+      console.log('Content script received settings update:', message.settings);
+      // You might want to update a local copy of settings or trigger a re-render of DualSubtitles
+      // if it doesn't pick up changes from chrome.storage.onChanged itself.
     }
+
     return true;
   });
   
@@ -226,7 +238,6 @@ setupPageChangeDetection();
 // 커스텀 디버깅 명령 등록 (콘솔에서 사용)
 (window as any).playLearnEngDebug = {
   analyzeDOM: analyzeVideoPlayerDOM,
-  highlightSubtitles: highlightSubtitleElements,
   
   // 자막 캡처 기능 추가 (interceptSubtitles는 chrome.debugger로 대체되어 제거)
   fetchSubtitle: fetchSubtitleManually,

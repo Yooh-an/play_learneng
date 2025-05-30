@@ -39,6 +39,14 @@ interface TabSubtitleData {
   videoId?: string;
 }
 
+interface SavedSubtitleFromPopup { // Assuming this structure from popup.tsx
+  id: string;
+  primaryText: string;
+  secondaryText: string;
+  timestamp: number;
+  episodeTitle?: string;
+}
+
 // 전역 상태 관리
 const contentScriptReadyTabs = new Set<number>();
 const pendingVttMessages = new Map<number, VttMessagePayload[]>();
@@ -396,21 +404,141 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+  else if (message.type === 'ADD_REVIEW_SUBTITLE') {
+    const newSubtitleData = message.payload as Omit<SavedSubtitleFromPopup, 'episodeTitle'>;
+    
+    chrome.storage.sync.get(['savedSubtitles', 'subtitleSettings'], (data) => {
+      if (chrome.runtime.lastError) {
+        console.error("Error getting savedSubtitles:", chrome.runtime.lastError.message);
+        sendResponse({ status: 'error', message: chrome.runtime.lastError.message });
+        return;
+      }
 
-  return true;
-});
+      const savedSubtitles: SavedSubtitleFromPopup[] = data.savedSubtitles || [];
+      const finalNewSubtitle: SavedSubtitleFromPopup = {
+        ...newSubtitleData,
+        // episodeTitle will be added here if possible
+      };
 
-// 탭 이벤트 리스너들
-chrome.tabs.onRemoved.addListener((tabId) => {
-  clearPendingVttMessagesAndVideoId(tabId);
-  console.log(`[Background] Cleaned up data for removed tab ${tabId}`);
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'loading' && tab.url && !tab.url.startsWith('chrome://')) {
-    console.log(`[Background] Tab ${tabId} updated, clearing data`);
-    clearPendingVttMessagesAndVideoId(tabId);
+      // Attempt to add episodeTitle/videoId
+      if (sender.tab && sender.tab.id) {
+        const tabData = tabSubtitleData.get(sender.tab.id); // tabSubtitleData is from your existing background script
+        if (tabData && tabData.videoId) {
+          // You might want a more descriptive title or a way to map videoId to a title
+          finalNewSubtitle.episodeTitle = `Video ID: ${tabData.videoId}`; 
+        }
+      }
+      
+      savedSubtitles.push(finalNewSubtitle);
+      
+      chrome.storage.sync.set({ savedSubtitles }, () => {
+        if (chrome.runtime.lastError) {
+          console.error("Error setting savedSubtitles:", chrome.runtime.lastError.message);
+          sendResponse({ status: 'error', message: chrome.runtime.lastError.message });
+        } else {
+          console.log('Subtitle saved to review tab:', finalNewSubtitle);
+          sendResponse({ status: 'success' });
+        }
+      });
+    });
+    return true; // Indicates that the response will be sent asynchronously.
   }
+  // Example: Forwarding VTT data if background script is responsible for fetching and distributing
+  if (message.type === 'FETCHED_VTT_DATA') { // Assuming a message type like this
+    if (sender.tab && sender.tab.id && message.payload) {
+        // Store it in tabSubtitleData or forward to content script / popup
+        const currentTabData = tabSubtitleData.get(sender.tab.id) || {};
+        if (message.payload.lang === 'ko') {
+            currentTabData.koVtt = message.payload.vtt;
+            // Optionally send to content script if it needs raw VTT
+            // chrome.tabs.sendMessage(sender.tab.id, { type: 'VTT_RECEIVED', payload: message.payload });
+        } else if (message.payload.lang === 'en') {
+            currentTabData.enVtt = message.payload.vtt;
+            // chrome.tabs.sendMessage(sender.tab.id, { type: 'VTT_RECEIVED', payload: message.payload });
+        }
+        tabSubtitleData.set(sender.tab.id, currentTabData);
+        
+        // Save to chrome.storage.local for popup to pick up
+        const storageUpdate: { [key: string]: string } = {};
+        if (message.payload.lang === 'ko') storageUpdate.koreanVttContent = message.payload.vtt;
+        if (message.payload.lang === 'en') storageUpdate.englishVttContent = message.payload.vtt;
+        
+        chrome.storage.local.set(storageUpdate, () => {
+            if (chrome.runtime.lastError) {
+                console.error('Error saving VTT to local storage:', chrome.runtime.lastError);
+            } else {
+                console.log('VTT content saved to local storage for popup.');
+            }
+        });
+        sendResponse({status: 'VTT processed by background'});
+    }
+    return true;
+  }
+  
+  // Handling content script readiness (if you use this pattern)
+  if (message.type === 'CONTENT_SCRIPT_READY') {
+    if (sender.tab && sender.tab.id) {
+      contentScriptReadyTabs.add(sender.tab.id);
+      console.log(`[Background] Content script ready for tab ${sender.tab.id}`);
+      // Process any pending messages for this tab
+      processPendingVttMessages(sender.tab.id); 
+      sendResponse({ status: 'acknowledged' });
+    }
+    return true;
+  }
+
+  // Message from popup to get current VTT data for analysis tab
+  if (message.type === 'GET_CURRENT_VTT_FOR_POPUP') {
+    if (sender.tab && sender.tab.id) { // Or use a different way to identify the relevant tab
+        // Try to get active tab's data if no specific ID is passed or makes sense
+        chrome.tabs.query({ active: true, currentWindow: false }, (activeTabs) => {
+            // Filter for Coupang Play tabs or the tab that the popup is inspecting
+            const targetVideoTab = activeTabs.find(t => t.url && t.url.includes("coupangplay.com"));
+            const relevantTabId = targetVideoTab?.id || sender.tab?.id; // Fallback to sender tab if needed
+
+            if (relevantTabId) {
+                const data = tabSubtitleData.get(relevantTabId);
+                sendResponse({
+                    koreanVtt: data?.koVtt,
+                    englishVtt: data?.enVtt,
+                    videoId: data?.videoId
+                });
+            } else {
+                sendResponse({ koreanVtt: null, englishVtt: null, videoId: null });
+            }
+        });
+    } else {
+         // Fallback: check local storage directly if no tab context
+        chrome.storage.local.get(['koreanVttContent', 'englishVttContent'], (localData) => {
+            sendResponse({
+                koreanVtt: localData.koreanVttContent,
+                englishVtt: localData.englishVttContent,
+                videoId: null // videoId might not be in local storage this way
+            });
+        });
+    }
+    return true;
+  }
+  
+  // Make sure to include any other message handlers that were in your original background script.
+  // For example, the MPD processing and VTT fetching logic.
+  // The following is a placeholder for where your existing network listeners might be.
+  // Ensure this integrates correctly with the functions like processMpdFile.
+
 });
 
-console.log('[Background] Play LearnEng Background Script Initialized');
+// ... (rest of existing background script code, including webRequest listeners, 
+//      parseMpdForSubtitles, processMpdFile, sendVttToContentScript, 
+//      queuePendingVttMessage, processPendingVttMessages, etc.) ...
+
+// Ensure functions like contentScriptReadyTabs and tabSubtitleData are defined globally in the script.
+// Example:
+// const contentScriptReadyTabs = new Set<number>();
+// const tabSubtitleData = new Map<number, { koUrl?: string; enUrl?: string; koVtt?: string; enVtt?: string; videoId?: string }>();
+// const pendingVttMessages = new Map<number, any[]>(); // Define type for VttMessagePayload if not already
+
+// function processPendingVttMessages(tabId: number) { ... } // Ensure this function exists
+
+// The webRequest listeners should call processMpdFile, which in turn might call
+// sendVttToContentScript or directly store/send VTT data.
+// The key is that VTT data (koVtt, enVtt) should end up in tabSubtitleData and chrome.storage.local.

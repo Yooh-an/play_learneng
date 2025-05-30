@@ -154,15 +154,12 @@ export function extractSubtitleInfo(subtitleElement: Element, videoPlayer: HTMLV
  */
 export function findActiveSubtitles(subtitleContainer: Element): Element[] {
   if (!subtitleContainer) return [];
-  
-  console.log('자막 컨테이너 검사:', subtitleContainer);
-  
+    
   const foundElements: Element[] = [];
   
   // 0단계: video 요소에서 활성화된 텍스트 트랙 확인 (가장 신뢰할 수 있는 방법)
   const videoElement = document.querySelector('video');
   if (videoElement && videoElement.textTracks) {
-    console.log(`비디오 텍스트 트랙 수: ${videoElement.textTracks.length}`);
     
     // 모든 트랙 순회하면서 정보 출력
     for (let i = 0; i < videoElement.textTracks.length; i++) {
@@ -241,19 +238,14 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
 
   const vjsTextTrackDisplay = document.querySelector('.vjs-text-track-display');
   if (vjsTextTrackDisplay) {
-    console.log('`.vjs-text-track-display` 요소를 발견하여 DOM 검색 컨텍스트로 사용합니다.');
     domSearchNode = vjsTextTrackDisplay;
   } else {
-    console.log('`.vjs-text-track-display`를 찾지 못했습니다. 제공된 `subtitleContainer`를 DOM 검색 컨텍스트로 사용합니다.');
     // domSearchNode remains subtitleContainer as set initially
   }
   
   // 1단계: DOM에서 한국어와 영어 자막 요소를 각각 찾기
   const koreanElements = Array.from(domSearchNode.querySelectorAll('.vjs-text-track-cue-ko, [class*="vjs-text-track-cue-ko"]'));
   const englishElements = Array.from(domSearchNode.querySelectorAll('.vjs-text-track-cue-en, [class*="vjs-text-track-cue-en"]'));
-  
-  console.log(`DOM 검색 - 한국어 자막 요소 수: ${koreanElements.length}`);
-  console.log(`DOM 검색 - 영어 자막 요소 수: ${englishElements.length}`);
   
   // 2단계: 유효한 자막 요소 필터링
   const getValidSubtitleElements = (elements: Element[]): Element[] => {
@@ -277,12 +269,6 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
       const isSubtitleElement = classString.includes('vjs-text-track-cue');
       
       if (isValidText && isSubtitleElement) {
-        console.log('유효한 자막 요소:', {
-          element: el,
-          text: textContent,
-          classes: classString,
-          language: classString.includes('ko') ? 'Korean' : classString.includes('en') ? 'English' : 'Unknown'
-        });
       }
       
       return isValidText && !isControlElement && isSubtitleElement;
@@ -354,7 +340,6 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
   for (const selector of generalSelectors) {
     const elements = Array.from(domSearchNode.querySelectorAll(selector)); // Use domSearchNode here
     const contextName = domSearchNode instanceof Element ? domSearchNode.tagName : 'document';
-    console.log(`선택자 '${selector}'로 검색한 결과 (컨텍스트: ${contextName}):`, elements.length);
     
     if (elements.length > 0) {
       const validElements = getValidSubtitleElements(elements);

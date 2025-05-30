@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import useSubtitleStore from '../../store/subtitleStore';
 
 interface DualSubtitlesProps {
@@ -6,23 +6,139 @@ interface DualSubtitlesProps {
   source?: 'dom' | 'vtt';
 }
 
+interface SubtitleSettings {
+  enabled: boolean;
+  primaryLanguage: 'ko' | 'en';
+  secondaryLanguage: 'ko' | 'en';
+  fontSize: number;
+  position: 'bottom' | 'top';
+  opacity: number;
+}
+
+interface SavedSubtitle {
+  id: string;
+  primaryText: string;
+  secondaryText: string;
+  timestamp: number;
+  episodeTitle?: string;
+}
+
 const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) => {
   const { 
     koreanSubtitle,
     englishSubtitle,
     displayMode,
-    primaryLanguage,
-    secondaryLanguage,
     setKoreanSubtitle,
     setEnglishSubtitle
   } = useSubtitleStore();
   
-  // 자막 컨테이너 참조
   const containerRef = useRef<HTMLDivElement>(null);
+  const [currentSettings, setCurrentSettings] = useState<SubtitleSettings | null>(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const settingsResult: { subtitleSettings?: SubtitleSettings } = await new Promise(resolve => {
+        chrome.storage.sync.get('subtitleSettings', data => resolve(data as { subtitleSettings?: SubtitleSettings }));
+      });
+      if (settingsResult.subtitleSettings) {
+        setCurrentSettings(settingsResult.subtitleSettings);
+      } else {
+        setCurrentSettings({
+          enabled: true,
+          primaryLanguage: 'ko',
+          secondaryLanguage: 'en',
+          fontSize: 16,
+          position: 'bottom',
+          opacity: 0.9
+        });
+      }
+    };
+    fetchSettings();
+
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'sync' && changes.subtitleSettings) {
+        setCurrentSettings(changes.subtitleSettings.newValue as SubtitleSettings);
+      }
+    };
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
+  }, []);
   
-  // 자막 업데이트 함수
+  const renderSubtitleInternal = useCallback((
+    container: HTMLElement, 
+    text: string, 
+    styleProps: React.CSSProperties
+  ) => {
+    const element = document.createElement('div');
+    element.className = 'play-learneng-subtitle-text';
+    element.textContent = text;
+    
+    Object.assign(element.style, {
+      padding: '4px 10px',
+      maxWidth: '90%',
+      textAlign: 'center',
+      lineHeight: '1.4',
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word',
+      textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8)',
+      pointerEvents: 'auto',
+      cursor: 'pointer',
+      userSelect: 'none', // Prevent text selection
+      ...styleProps
+    });
+
+    element.onclick = async () => {
+      console.error('!!! DUALSUBTITLES ONCLICK FIRED !!! Subtitle clicked:', text); // MODIFIED FOR VISIBILITY
+      const { koreanSubtitle, englishSubtitle } = useSubtitleStore.getState();
+      const currentKoreanText = koreanSubtitle;
+      const currentEnglishText = englishSubtitle;
+      console.log('[DualSubtitles] Current subtitles from store:', { currentKoreanText, currentEnglishText });
+
+      if (!currentKoreanText && !currentEnglishText) {
+        console.warn('[DualSubtitles] No subtitle text found to save.');
+        return;
+      }
+
+      try {
+        const response = await chrome.runtime.sendMessage({ type: 'LE_GET_CURRENT_TIME' });
+        console.log('[DualSubtitles] Received timestamp response:', response);
+        if (chrome.runtime.lastError) {
+          console.error('[DualSubtitles] Error getting current time:', chrome.runtime.lastError.message);
+          return;
+        }
+        const timestamp = response?.currentTime;
+        if (typeof timestamp !== 'number') {
+          console.error('[DualSubtitles] Invalid timestamp received:', timestamp);
+          return;
+        }
+
+        const primaryText = currentSettings?.primaryLanguage === 'ko' ? currentKoreanText : currentEnglishText;
+        const secondaryText = currentSettings?.primaryLanguage === 'ko' ? currentEnglishText : currentKoreanText;
+
+        const reviewSubtitle: Omit<SavedSubtitle, 'id' | 'episodeTitle'> = {
+          primaryText: primaryText || '',
+          secondaryText: secondaryText || '',
+          timestamp,
+        };
+        console.log('[DualSubtitles] Sending review subtitle to background:', reviewSubtitle);
+        chrome.runtime.sendMessage({ type: 'ADD_REVIEW_SUBTITLE', payload: reviewSubtitle }, (bgResponse) => {
+          if (chrome.runtime.lastError) {
+            console.error('[DualSubtitles] Error sending to background:', chrome.runtime.lastError.message);
+          } else {
+            console.log('[DualSubtitles] Background script response:', bgResponse);
+          }
+        });
+      } catch (error) {
+        console.error('[DualSubtitles] Error in handleClick:', error);
+      }
+    };
+    
+    container.appendChild(element);
+  }, [currentSettings]);
+
   const updateSubtitles = useCallback(() => {
-    // 자막 컨테이너 찾기 (없으면 생성)
     let container = containerRef.current;
     if (!container) {
       container = document.createElement('div');
@@ -40,18 +156,15 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
       container.style.padding = '0 20px';
       container.style.boxSizing = 'border-box';
       document.body.appendChild(container);
-      // containerRef.current는 readonly이므로 직접 할당하지 않고 ref 콜백 사용
       if (!containerRef.current) {
         (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = container;
       }
     }
     
-    // 컨테이너 내용 비우기
     container.innerHTML = '';
     
-    // 한국어 자막 표시 (주 자막)
     if ((displayMode === 'dual' || displayMode === 'primary') && koreanSubtitle) {
-      renderSubtitle(container, koreanSubtitle, {
+      renderSubtitleInternal(container, koreanSubtitle, {
         color: '#ffffff',
         fontSize: '20px',
         marginBottom: '5px',
@@ -59,43 +172,19 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
       });
     }
     
-    // 영어 자막 표시 (보조 자막)
     if ((displayMode === 'dual' || displayMode === 'secondary') && englishSubtitle) {
-      renderSubtitle(container, englishSubtitle, {
+      renderSubtitleInternal(container, englishSubtitle, {
         color: '#56c7ff',
         fontSize: '18px',
         marginBottom: '0',
         fontWeight: '400'
       });
     }
-  }, [displayMode, koreanSubtitle, englishSubtitle, primaryLanguage, secondaryLanguage]);
+  }, [displayMode, koreanSubtitle, englishSubtitle, renderSubtitleInternal]);
   
-  // 자막 렌더링 함수
-  const renderSubtitle = (container: HTMLElement, text: string, style: React.CSSProperties) => {
-    const element = document.createElement('div');
-    element.className = 'play-learneng-subtitle-text';
-    element.textContent = text;
-    
-    // 스타일 적용 (배경 제거하고 텍스트 그림자로 가독성 확보)
-    Object.assign(element.style, {
-      padding: '4px 10px',
-      maxWidth: '90%',
-      textAlign: 'center',
-      lineHeight: '1.4',
-      whiteSpace: 'pre-wrap',
-      wordBreak: 'break-word',
-      textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8)',
-      ...style
-    });
-    
-    container.appendChild(element);
-  };
-  
-  // 자막 변경 감지 및 업데이트
   useEffect(() => {
     updateSubtitles();
     
-    // 컴포넌트 언마운트 시 정리
     return () => {
       const container = containerRef.current;
       if (container && container.parentNode) {
@@ -104,12 +193,9 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
     };
   }, [updateSubtitles]);
   
-  // 자막 추출 로직 (기존 자막 감지 로직과 연동)
   useEffect(() => {
     if (source === 'vtt') {
-      // VTT 소스에서 자막 추출 (기존 로직과 연동)
       const detectAndExtractSubtitles = () => {
-        // 기존 자막 감지 로직과 연동
         // ...
       };
       
@@ -118,8 +204,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
     }
   }, [source]);
 
-  // 컴포넌트 반환 (React 컴포넌트로 수정)
-  return null;
+  return null; 
 };
 
 export default DualSubtitles;
