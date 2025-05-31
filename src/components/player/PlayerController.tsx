@@ -494,7 +494,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         primaryElement.style.cssText = `
           color: #ffffff;
           padding: 4px 10px; margin-bottom: 5px;
-          font-size: 20px; font-weight: 500; max-width: 90%;
+          font-size: ${subtitleSettings.fontSize}px; font-weight: 500; max-width: 90%;
           text-align: center; line-height: 1.4; white-space: pre-wrap;
           text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
         `;
@@ -518,7 +518,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       secondaryElement.style.cssText = `
         color: #ffffff;
         padding: 4px 10px;
-        font-size: 20px; font-weight: 500; max-width: 90%;
+        font-size: ${subtitleSettings.fontSize}px; font-weight: 500; max-width: 90%;
         text-align: center; line-height: 1.4; white-space: pre-wrap; margin-bottom: 0;
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
       `;

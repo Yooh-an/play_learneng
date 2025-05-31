@@ -274,13 +274,13 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
 
     const primaryStyle: React.CSSProperties = {
       color: '#ffffff',
-      fontSize: '20px',
+      fontSize: `${currentSettings.fontSize}px`,
       marginBottom: '5px',
       fontWeight: '500'
     };
     const secondaryStyle: React.CSSProperties = {
       color: '#56c7ff',
-      fontSize: '18px',
+      fontSize: `${currentSettings.fontSize}px`,
       marginBottom: '0px', // Ensure this is 0px if it's the only one or last one
       fontWeight: '400'
     };
