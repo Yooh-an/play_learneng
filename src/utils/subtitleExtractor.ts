@@ -287,9 +287,10 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
     }
     
     // 기존 커스텀 자막 요소는 매번 제거하고 다시 생성
-    removeExistingCustomSubtitles();
+    // removeExistingCustomSubtitles(); // 깜빡임 문제 해결을 위해 비활성화
     
-    // 이중 자막 컨테이너 준비 (스크린샷과 일치하는 구조)
+    // 이중 자막 컨테이너 준비 (PlayerController에서만 처리하도록 변경)
+    /*
     let dualSubtitleContainer = document.getElementById('play-learneng-subtitle-container');
     if (!dualSubtitleContainer) {
       dualSubtitleContainer = createDualSubtitleContainer();
@@ -315,6 +316,7 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
         'en'
       );
     }
+    */
     
     return foundElements;
   }
@@ -877,10 +879,11 @@ function createVirtualEnglishSubtitle(container: Element, koreanText: string): E
     });
   }
   
-  // 기존 커스텀 자막 요소는 매번 제거하고 다시 생성
-  removeExistingCustomSubtitles();
+  // 기존 커스텀 자막 요소는 매번 제거하고 다시 생성 (깜빡임 문제 해결을 위해 비활성화)
+  // removeExistingCustomSubtitles();
   
-  // 이중 자막 컨테이너 준비 (스크린샷과 일치하는 구조)
+  // 이중 자막 컨테이너 준비 (PlayerController에서만 처리하도록 변경)
+  /*
   let dualSubtitleContainer = document.getElementById('play-learneng-subtitle-container');
   if (!dualSubtitleContainer) {
     dualSubtitleContainer = createDualSubtitleContainer();
@@ -894,6 +897,7 @@ function createVirtualEnglishSubtitle(container: Element, koreanText: string): E
   
   // 임시 영어 자막 표시 (실제 영어 자막을 로드하기 전까지)
   renderDualSubtitle(dualSubtitleContainer, `[Loading EN] ${koreanText}`, 'en');
+  */
   
   return null; // 실제 DOM 요소를 반환하지 않고 커스텀 컨테이너를 사용
 }
@@ -902,35 +906,8 @@ function createVirtualEnglishSubtitle(container: Element, koreanText: string): E
  * 가상 한국어 자막 생성 (en → ko)
  */
 function createVirtualKoreanSubtitle(container: Element, englishText: string): Element | null {
-  console.log('🚀 en/ko 자막 파일 동시 로드 시도 중...');
-  
-  const currentSubtitleUrls = detectCurrentSubtitleUrls();
-  
-  if (currentSubtitleUrls.length > 0) {
-    currentSubtitleUrls.forEach(url => {
-      loadBothLanguageSubtitles(url, container);
-    });
-  }
-  
-  // 기존 커스텀 자막 요소는 매번 제거하고 다시 생성
-  removeExistingCustomSubtitles();
-  
-  // 이중 자막 컨테이너 준비 (스크린샷과 일치하는 구조)
-  let dualSubtitleContainer = document.getElementById('play-learneng-subtitle-container');
-  if (!dualSubtitleContainer) {
-    dualSubtitleContainer = createDualSubtitleContainer();
-  } else {
-    // 기존 컨테이너가 있으면 내용 비우기
-    dualSubtitleContainer.innerHTML = '';
-  }
-  
-  // 임시 한국어 자막 표시 (실제 한국어 자막을 로드하기 전까지)
-  renderDualSubtitle(dualSubtitleContainer, `[Loading KO] ${englishText}`, 'ko');
-  
-  // 영어 자막 렌더링
-  renderDualSubtitle(dualSubtitleContainer, englishText, 'en');
-  
-  return null; // 실제 DOM 요소를 반환하지 않고 커스텀 컨테이너를 사용
+  // 깜빡임 문제 해결을 위해 자막 렌더링 비활성화 - PlayerController에서만 처리
+  return null;
 }
 
 /**
@@ -1070,7 +1047,9 @@ function generateLanguageUrls(baseUrl: string): Array<{ url: string; language: '
  * VTT 내용을 파싱하여 DOM에 자막 요소 생성
  */
 function parseAndCreateSubtitleElements(vttContent: string, language: 'ko' | 'en', container: Element): void {
-  console.log(`${language} VTT 파싱 및 DOM 생성 중...`);
+  // 깜빡임 문제 해결을 위해 자막 렌더링 비활성화 - PlayerController에서만 처리
+  console.log(`${language} VTT 파싱 비활성화됨 (깜빡임 문제 해결)`);
+  return;
   
   // VTT 파싱 - 자막 시간과 텍스트 추출
   const subtitleData = parseVttContent(vttContent);

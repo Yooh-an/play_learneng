@@ -183,8 +183,8 @@ function mountUserInterface(
     );
     console.log('Play LearnEng: UI 컴포넌트가 성공적으로 마운트되었습니다.');
     
-    // 스크린샷 구조에 맞게 자막 컨테이너 생성
-    setupDualSubtitleContainer();
+    // 자막 컨테이너는 PlayerController에서만 생성하도록 변경 (깜빡임 문제 해결)
+    // setupDualSubtitleContainer();
   } catch (error) {
     console.error('Play LearnEng: UI 렌더링 중 오류 발생:', error);
   }
