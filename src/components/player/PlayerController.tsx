@@ -556,17 +556,22 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         primaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${primaryLang}`;
         primaryElement.textContent = primaryTextToDisplay;
         primaryElement.style.cssText = `
-          color: #ffffff !important;
+          color: #fafafa !important;
           padding: 6px 12px !important; margin: 0 auto 0 auto !important;
-          font-size: ${subtitleSettings.fontSize}px !important; font-weight: 500 !important; max-width: 90% !important;
+          font-size: ${subtitleSettings.fontSize}px !important; font-weight: 600 !important; max-width: 90% !important;
           text-align: center !important; line-height: 1.4 !important; white-space: pre-wrap !important;
           background-color: rgba(0, 0, 0, ${subtitleSettings.opacity}) !important;
           border-radius: 4px !important;
-          text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+          text-shadow: 
+            2px 2px 4px rgba(0, 0, 0, 0.9),
+            1px 1px 2px rgba(0, 0, 0, 0.8),
+            0 0 6px rgba(0, 0, 0, 0.6) !important;
+          -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.7) !important;
           display: inline-block !important;
           width: auto !important;
           min-width: 0 !important;
           box-sizing: border-box !important;
+          letter-spacing: 0.3px !important;
         `;
         container.appendChild(primaryElement);
       }
@@ -586,17 +591,22 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLang}`;
       secondaryElement.textContent = secondaryTextToDisplay;
       secondaryElement.style.cssText = `
-        color: #ffffff !important;
+        color: #fafafa !important;
         padding: 6px 12px !important; margin: 8px auto 0 auto !important;
-        font-size: ${subtitleSettings.fontSize}px !important; font-weight: 500 !important; max-width: 90% !important;
+        font-size: ${subtitleSettings.fontSize}px !important; font-weight: 600 !important; max-width: 90% !important;
         text-align: center !important; line-height: 1.4 !important; white-space: pre-wrap !important;
         background-color: rgba(0, 0, 0, ${subtitleSettings.opacity}) !important;
         border-radius: 4px !important;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+        text-shadow: 
+          2px 2px 4px rgba(0, 0, 0, 0.9),
+          1px 1px 2px rgba(0, 0, 0, 0.8),
+          0 0 6px rgba(0, 0, 0, 0.6) !important;
+        -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.7) !important;
         display: inline-block !important;
         width: auto !important;
         min-width: 0 !important;
         box-sizing: border-box !important;
+        letter-spacing: 0.3px !important;
       `;
       container.appendChild(secondaryElement);
     }
