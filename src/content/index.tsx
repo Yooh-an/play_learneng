@@ -644,37 +644,40 @@ function showFeedback(message: string, isSuccess: boolean) {
     feedbackElement.id = 'play-learneng-feedback';
     
     feedbackElement.innerHTML = `
-      <span style="margin-right: 8px">${isSuccess ? '✅' : '⚠️'}</span>
+      <span style="margin-right: 6px; font-size: 12px;">${isSuccess ? '✓' : '!'}</span>
       <span>${message}</span>
     `;
     
-    // 스타일 적용
+    // 미니멀한 스타일 적용
     Object.assign(feedbackElement.style, {
       position: 'fixed',
-      top: '50px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      padding: '10px 20px',
-      backgroundColor: isSuccess ? 'rgba(25, 135, 84, 0.85)' : 'rgba(220, 53, 69, 0.85)',
-      color: '#fff',
-      borderRadius: '6px',
-      fontWeight: 'bold',
+      top: '20px',
+      right: '20px',
+      padding: '8px 12px',
+      backgroundColor: isSuccess ? 'rgba(0, 0, 0, 0.75)' : 'rgba(220, 53, 69, 0.75)',
+      color: isSuccess ? '#4ade80' : '#ff6b6b',
+      borderRadius: '4px',
+      fontWeight: '400',
+      fontSize: '13px',
       zIndex: '10000',
-      transition: 'all 0.3s ease',
+      transition: 'all 0.2s ease',
       opacity: '0',
-      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.15)',
+      transform: 'translateY(-10px)',
+      backdropFilter: 'blur(4px)',
+      border: isSuccess ? '1px solid rgba(74, 222, 128, 0.3)' : '1px solid rgba(255, 107, 107, 0.3)',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '16px'
+      maxWidth: '200px',
+      wordBreak: 'break-word'
     });
     
     document.body.appendChild(feedbackElement);
     
-    // 애니메이션 효과
+    // 부드러운 애니메이션 효과
     setTimeout(() => {
       try {
         feedbackElement.style.opacity = '1';
+        feedbackElement.style.transform = 'translateY(0)';
       } catch (animError) {
         console.error('피드백 애니메이션 효과 적용 중 오류:', animError);
       }
@@ -682,11 +685,12 @@ function showFeedback(message: string, isSuccess: boolean) {
     
     // 일정 시간 후 제거 (Extension context가 무효화된 경우를 제외하고)
     if (message.includes('새로고침') || message.includes('컨텍스트 오류')) {
-      // 확장 컨텍스트 오류 관련 메시지는 더 오래 표시 (5초)
+      // 확장 컨텍스트 오류 관련 메시지는 더 오래 표시 (4초)
       setTimeout(() => {
         try {
           if (feedbackElement) {
             feedbackElement.style.opacity = '0';
+            feedbackElement.style.transform = 'translateY(-10px)';
             setTimeout(() => {
               try {
                 if (feedbackElement && feedbackElement.parentNode) {
@@ -695,18 +699,19 @@ function showFeedback(message: string, isSuccess: boolean) {
               } catch (removeError) {
                 console.error('피드백 요소 제거 중 오류:', removeError);
               }
-            }, 300);
+            }, 200);
           }
         } catch (fadeError) {
           console.error('피드백 페이드아웃 중 오류:', fadeError);
         }
-      }, 5000);
+      }, 4000);
     } else {
-      // 일반 메시지는 2초 표시
+      // 일반 메시지는 1.5초 표시 (더 빠른 피드백)
       setTimeout(() => {
         try {
           if (feedbackElement) {
             feedbackElement.style.opacity = '0';
+            feedbackElement.style.transform = 'translateY(-10px)';
             setTimeout(() => {
               try {
                 if (feedbackElement && feedbackElement.parentNode) {
@@ -715,12 +720,12 @@ function showFeedback(message: string, isSuccess: boolean) {
               } catch (removeError) {
                 console.error('피드백 요소 제거 중 오류:', removeError);
               }
-            }, 300);
+            }, 200);
           }
         } catch (fadeError) {
           console.error('피드백 페이드아웃 중 오류:', fadeError);
         }
-      }, 2000);
+      }, 1500);
     }
   } catch (error) {
     // 피드백 표시에 실패했을 때 적어도 콘솔에는 기록
