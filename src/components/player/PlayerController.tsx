@@ -492,7 +492,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         primaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${primaryLang}`;
         primaryElement.textContent = primaryTextToDisplay;
         primaryElement.style.cssText = `
-          color: ${primaryLang === 'ko' ? '#ffffff' : '#56c7ff'};
+          color: #ffffff;
           padding: 4px 10px; margin-bottom: 5px;
           font-size: 20px; font-weight: 500; max-width: 90%;
           text-align: center; line-height: 1.4; white-space: pre-wrap;
@@ -516,9 +516,9 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLang}`;
       secondaryElement.textContent = secondaryTextToDisplay;
       secondaryElement.style.cssText = `
-        color: ${secondaryLang === 'en' ? '#56c7ff' : '#ffffff'};
+        color: #ffffff;
         padding: 4px 10px;
-        font-size: 18px; font-weight: 400; max-width: 90%;
+        font-size: 20px; font-weight: 500; max-width: 90%;
         text-align: center; line-height: 1.4; white-space: pre-wrap; margin-bottom: 0;
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
       `;
