@@ -80,7 +80,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
           primaryLanguage: 'ko',
           secondaryLanguage: 'en',
           fontSize: 16,
-          position: 80, // 80% from top (near bottom)
+          position: 75, // 75% from top (comfortable bottom position)
           opacity: 0.9
         });
       }

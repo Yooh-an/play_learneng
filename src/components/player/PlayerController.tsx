@@ -68,7 +68,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
             primaryLanguage: 'ko',
             secondaryLanguage: 'en',
             fontSize: 20,
-            position: 80, // 80% from top (near bottom)
+            position: 75, // 75% from top (comfortable bottom position)
             opacity: 0.9,
           };
           console.log('[PlayerController] No subtitleSettings found, initializing with default:', defaultSettings);
@@ -463,15 +463,12 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     
     // Update container position based on settings
     if (subtitleSettings) {
-      // Convert percentage to pixel position
-      // 0% = top: 20px, 100% = bottom: 70px
-      const isTop = subtitleSettings.position < 50;
-      const positionValue = isTop 
-        ? `${20 + (subtitleSettings.position * 0.5)}px` // 0% = 20px, 50% = 45px
-        : `${70 + ((subtitleSettings.position - 50) * 0.6)}px`; // 50% = 70px, 100% = 100px
+      // Convert percentage (0-100) to position value
+      // 0% = top: 5%, 100% = top: 85% (allowing full range of positioning)
+      const topPercentage = 5 + (subtitleSettings.position * 0.8); // 5% to 85%
       
       container.style.cssText = `
-        position: absolute; ${isTop ? 'top' : 'bottom'}: ${positionValue}; left: 0; right: 0;
+        position: absolute; top: ${topPercentage}%; left: 0; right: 0;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         width: 100%; z-index: 9999; pointer-events: none; padding: 0 30px; box-sizing: border-box;
       `;

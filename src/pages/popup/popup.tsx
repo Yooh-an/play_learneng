@@ -47,7 +47,7 @@ const Popup = () => {
     primaryLanguage: 'ko',
     secondaryLanguage: 'en',
     fontSize: 16,
-    position: 80, // 80% from top (near bottom)
+    position: 75, // 75% from top (comfortable bottom position)
     opacity: 0.9
   });
   const [savedSubtitles, setSavedSubtitles] = useState<SavedSubtitle[]>([]);
@@ -177,7 +177,7 @@ const Popup = () => {
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
       if (areaName === 'sync') {
         if (changes.subtitleSettings) {
-          setSettings(changes.subtitleSettings.newValue as SubtitleSettings || { enabled: true, primaryLanguage: 'ko', secondaryLanguage: 'en', fontSize: 16, position: 80, opacity: 0.9 });
+          setSettings(changes.subtitleSettings.newValue as SubtitleSettings || { enabled: true, primaryLanguage: 'ko', secondaryLanguage: 'en', fontSize: 16, position: 75, opacity: 0.9 });
         }
         if (changes.savedSubtitles) {
           setSavedSubtitles(changes.savedSubtitles.newValue as SavedSubtitle[] || []);
@@ -458,7 +458,7 @@ const Popup = () => {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">자막 위치</label>
+        <label className="block text-sm font-medium mb-1">자막 위치 ({settings.position}%)</label>
         <input
           type="range"
           min="0"
@@ -468,8 +468,9 @@ const Popup = () => {
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
         />
         <div className="flex justify-between text-xs text-gray-500 mt-1">
-          <span>상단</span>
-          <span>하단</span>
+          <span>상단 (0%)</span>
+          <span>중앙 (50%)</span>
+          <span>하단 (100%)</span>
         </div>
       </div>
 
