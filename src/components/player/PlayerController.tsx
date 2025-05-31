@@ -14,19 +14,14 @@ interface PlayerControllerProps {
   };
 }
 
-// Define the structure of subtitleSettings
+// Define the structure of subtitleSettings (aligned with popup.tsx)
 interface SubtitleSettings {
   enabled: boolean;
-  primaryLang: string;
-  secondaryLang: string;
-  style: {
-    fontSize: number;
-    fontColor: string;
-    backgroundColor: string;
-    backgroundOpacity: number;
-  };
-  position: string;
-  delay: number;
+  primaryLanguage: 'ko' | 'en';
+  secondaryLanguage: 'ko' | 'en';
+  fontSize: number;
+  position: 'bottom' | 'top';
+  opacity: number;
 }
 
 const PlayerController: React.FC<PlayerControllerProps> = ({ 
@@ -70,16 +65,11 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
           // Initialize with default settings if not found
           const defaultSettings: SubtitleSettings = {
             enabled: true,
-            primaryLang: 'en',
-            secondaryLang: 'ko',
-            style: {
-              fontSize: 24,
-              fontColor: '#FFFFFF',
-              backgroundColor: '#000000',
-              backgroundOpacity: 0.7,
-            },
+            primaryLanguage: 'ko',
+            secondaryLanguage: 'en',
+            fontSize: 20,
             position: 'bottom',
-            delay: 0,
+            opacity: 0.9,
           };
           console.log('[PlayerController] No subtitleSettings found, initializing with default:', defaultSettings);
           setSubtitleSettings(defaultSettings);
@@ -166,12 +156,18 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
           });
           if (validSubtitles.length === 0) return;
 
+          // Skip if subtitleSettings not loaded yet
+          if (!subtitleSettings) {
+            console.log('[PlayerController] subtitleSettings not loaded yet, skipping DOM subtitle processing');
+            return;
+          }
+
           let primaryText = '';
           let secondaryText = '';
           const koreanSubtitles = validSubtitles.filter(sub => (sub as any).element?.className?.includes('ko') || /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(sub.text));
           const englishSubtitles = validSubtitles.filter(sub => (sub as any).element?.className?.includes('en') || /^[a-zA-Z\s.,!?'"-]+$/.test(sub.text));
 
-          if (primaryLanguage === 'ko') {
+          if (subtitleSettings.primaryLanguage === 'ko') {
             primaryText = koreanSubtitles[0]?.text || '';
             secondaryText = englishSubtitles[0]?.text || '';
           } else {
@@ -223,6 +219,13 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     const vttListener = {
       onSubtitleLoaded: (loadedSubtitle: import('../../services/subtitles/vttSubtitleService').CapturedSubtitle) => { 
         console.log(`[PlayerController] VTT subtitle file loaded via VTTManager listener: ${loadedSubtitle.url}, lang: ${loadedSubtitle.language}`);
+        
+        // Skip if subtitleSettings not loaded yet
+        if (!subtitleSettings) {
+          console.log('[PlayerController] subtitleSettings not loaded yet, skipping VTT processing');
+          return;
+        }
+        
         const currentTime = videoElement.currentTime;
         const vttCues = vttSubtitleManager.getActiveSubtitles(currentTime, subtitleSync);
         let primaryText = '';
@@ -231,7 +234,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         const vttManagerPrimaryText = vttCues.primary?.text || '';
         const vttManagerSecondaryText = vttCues.secondary?.text || '';
 
-        if (primaryLanguage === 'ko') { 
+        if (subtitleSettings.primaryLanguage === 'ko') { 
             primaryText = vttManagerPrimaryText; 
             secondaryText = vttManagerSecondaryText; 
         } else { 
@@ -245,7 +248,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         console.log('[PlayerController DEBUG]   vttCues.secondary:', vttCues.secondary);
         console.log('[PlayerController DEBUG]   vttManagerPrimaryText (detected language):', vttManagerPrimaryText);
         console.log('[PlayerController DEBUG]   vttManagerSecondaryText (detected language):', vttManagerSecondaryText);
-        console.log('[PlayerController DEBUG]   primaryLanguage (user setting):', primaryLanguage);
+        console.log('[PlayerController DEBUG]   primaryLanguage (user setting):', subtitleSettings.primaryLanguage);
         console.log('[PlayerController DEBUG]   primaryText (for display):', primaryText);
         console.log('[PlayerController DEBUG]   secondaryText (for display):', secondaryText);
         console.log('[PlayerController DEBUG]   lastDomSubtitle:', lastDomSubtitle);
@@ -273,11 +276,16 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       vttSubtitleManager.removeListener(vttListener);
       vttSubtitleManager.stop();
     };
-  }, [videoElement, subtitleContainer, primaryLanguage, secondaryLanguage, setActiveSubtitles, subtitleSync]);
+  }, [videoElement, subtitleContainer, setActiveSubtitles, subtitleSync, subtitleSettings]);
 
   // VTT 자막 업데이트를 위한 timeupdate 핸들러 및 로직
   useEffect(() => {
     const updateSubtitlesFromVTT = () => {
+      // Skip if subtitleSettings not loaded yet
+      if (!subtitleSettings) {
+        return;
+      }
+      
       const localCurrentTime = videoElement.currentTime; 
       const vttCues = vttSubtitleManager.getActiveSubtitles(localCurrentTime, subtitleSync);
       
@@ -287,7 +295,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       const vttManagerPrimaryText = vttCues.primary?.text || '';
       const vttManagerSecondaryText = vttCues.secondary?.text || '';
 
-      if (primaryLanguage === 'ko') {
+      if (subtitleSettings.primaryLanguage === 'ko') {
         vttPrimaryTextForDisplay = vttManagerPrimaryText;
         vttSecondaryTextForDisplay = vttManagerSecondaryText;
       } else {
@@ -318,7 +326,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     return () => {
       videoElement.removeEventListener('timeupdate', handleSubtitleTimeUpdate);
     };
-  }, [videoElement, setActiveSubtitles, primaryLanguage, secondaryLanguage, subtitleSync]);
+  }, [videoElement, setActiveSubtitles, subtitleSync, subtitleSettings]);
 
   const formatTime = (seconds: number): string => {
     if (isNaN(seconds)) return '00:00';
@@ -453,6 +461,10 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     const primaryTextToDisplay = subtitle.primaryText;
     const secondaryTextToDisplay = subtitle.secondaryText;
 
+    // Get language preferences from subtitleSettings
+    const primaryLang = subtitleSettings.primaryLanguage;
+    const secondaryLang = subtitleSettings.secondaryLanguage;
+
     // Logic for displaying primary subtitle
     if (primaryTextToDisplay) {
       // Show primary if:
@@ -462,10 +474,10 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       if (!subtitleSettings.enabled || 
           (subtitleSettings.enabled && (displayMode === 'primary' || displayMode === 'dual'))) {
         const primaryElement = document.createElement('div');
-        primaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${primaryLanguage}`;
+        primaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${primaryLang}`;
         primaryElement.textContent = primaryTextToDisplay;
         primaryElement.style.cssText = `
-          color: ${primaryLanguage === 'ko' ? '#ffffff' : '#56c7ff'};
+          color: ${primaryLang === 'ko' ? '#ffffff' : '#56c7ff'};
           padding: 4px 10px; margin-bottom: 5px;
           font-size: 20px; font-weight: 500; max-width: 90%;
           text-align: center; line-height: 1.4; white-space: pre-wrap;
@@ -486,10 +498,10 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         (displayMode === 'secondary' || displayMode === 'dual') && 
         secondaryTextToDisplay) {
       const secondaryElement = document.createElement('div');
-      secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLanguage}`;
+      secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLang}`;
       secondaryElement.textContent = secondaryTextToDisplay;
       secondaryElement.style.cssText = `
-        color: ${secondaryLanguage === 'en' ? '#56c7ff' : '#ffffff'};
+        color: ${secondaryLang === 'en' ? '#56c7ff' : '#ffffff'};
         padding: 4px 10px;
         font-size: 18px; font-weight: 400; max-width: 90%;
         text-align: center; line-height: 1.4; white-space: pre-wrap; margin-bottom: 0;
@@ -497,7 +509,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       `;
       container.appendChild(secondaryElement);
     }
-  }, [displayMode, primaryLanguage, secondaryLanguage, subtitleSettings]);
+  }, [displayMode, subtitleSettings]);
 
   useEffect(() => {
     const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles;
