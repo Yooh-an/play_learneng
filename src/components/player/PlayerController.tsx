@@ -167,12 +167,17 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
           const koreanSubtitles = validSubtitles.filter(sub => (sub as any).element?.className?.includes('ko') || /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(sub.text));
           const englishSubtitles = validSubtitles.filter(sub => (sub as any).element?.className?.includes('en') || /^[a-zA-Z\s.,!?'"-]+$/.test(sub.text));
 
+          // Map subtitles based on both primary and secondary language settings
           if (subtitleSettings.primaryLanguage === 'ko') {
             primaryText = koreanSubtitles[0]?.text || '';
-            secondaryText = englishSubtitles[0]?.text || '';
           } else {
             primaryText = englishSubtitles[0]?.text || '';
+          }
+          
+          if (subtitleSettings.secondaryLanguage === 'ko') {
             secondaryText = koreanSubtitles[0]?.text || '';
+          } else {
+            secondaryText = englishSubtitles[0]?.text || '';
           }
           if (!primaryText && !secondaryText && validSubtitles[0]) primaryText = validSubtitles[0].text;
           
@@ -234,12 +239,17 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         const vttManagerPrimaryText = vttCues.primary?.text || '';
         const vttManagerSecondaryText = vttCues.secondary?.text || '';
 
+        // Map VTT cues based on both primary and secondary language settings
         if (subtitleSettings.primaryLanguage === 'ko') { 
             primaryText = vttManagerPrimaryText; 
-            secondaryText = vttManagerSecondaryText; 
         } else { 
             primaryText = vttManagerSecondaryText; 
+        }
+        
+        if (subtitleSettings.secondaryLanguage === 'ko') { 
             secondaryText = vttManagerPrimaryText; 
+        } else { 
+            secondaryText = vttManagerSecondaryText; 
         }
         
         console.log('[PlayerController DEBUG] onSubtitleLoaded - Values before setActiveSubtitles:');
@@ -295,12 +305,17 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       const vttManagerPrimaryText = vttCues.primary?.text || '';
       const vttManagerSecondaryText = vttCues.secondary?.text || '';
 
+      // Map VTT cues based on both primary and secondary language settings
       if (subtitleSettings.primaryLanguage === 'ko') {
         vttPrimaryTextForDisplay = vttManagerPrimaryText;
-        vttSecondaryTextForDisplay = vttManagerSecondaryText;
       } else {
-        vttPrimaryTextForDisplay = vttManagerSecondaryText; 
+        vttPrimaryTextForDisplay = vttManagerSecondaryText;
+      }
+      
+      if (subtitleSettings.secondaryLanguage === 'ko') {
         vttSecondaryTextForDisplay = vttManagerPrimaryText;
+      } else {
+        vttSecondaryTextForDisplay = vttManagerSecondaryText;
       }
           
       if (vttPrimaryTextForDisplay || vttSecondaryTextForDisplay) {
