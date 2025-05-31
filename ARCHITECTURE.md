@@ -52,9 +52,7 @@ src/
 │   └── subtitles/     # 자막 처리 관련 서비스
 ├── utils/             # 유틸리티 함수
 ├── pages/             # 익스텐션 페이지
-│   ├── popup/         # 팝업 페이지
-│   ├── options/       # 옵션 페이지
-│   └── review/        # 자막 복습 페이지
+│   └── popup/         # 팝업 페이지 (모든 설정 통합)
 ├── content/           # 콘텐츠 스크립트
 │   ├── index.tsx      # 메인 콘텐츠 스크립트 진입점
 │   ├── injector.ts    # DOM 조작 및 자막 인젝션 로직

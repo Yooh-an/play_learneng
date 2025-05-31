@@ -2,6 +2,7 @@
  * WebVTT 자막 관련 서비스 구현
  */
 import { parseVTT } from '../../utils/subtitleCapturer';
+import { logger } from '../../utils/logger';
 
 interface SubtitleCue {
   startTime: number;
@@ -36,7 +37,7 @@ export function findActiveSubtitleCue(cues: SubtitleCue[], currentTime: number):
  */
 export async function loadVTTSubtitle(url: string, language: string = 'unknown'): Promise<CapturedSubtitle | null> {
   try {
-    console.log(`VTT 자막 파일 로드 중: ${url} (${language})`);
+    logger.log(`VTT 자막 파일 로드 중: ${url} (${language})`);
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -46,7 +47,7 @@ export async function loadVTTSubtitle(url: string, language: string = 'unknown')
     const content = await response.text();
     const cues = parseVTT(content);
     
-    console.log(`VTT 자막 로드 완료: ${cues.length}개의 큐`);
+    logger.log(`VTT 자막 로드 완료: ${cues.length}개의 큐`);
     
     return {
       url,
@@ -113,7 +114,7 @@ export class VTTSubtitleManager {
     // this.interceptActive = true;
     // this.setupInterception(); // chrome.debugger 사용으로 fetch 가로채기 로직 제거
     
-    console.log('VTT 자막 매니저가 시작되었습니다. (chrome.debugger로부터 데이터 수신 대기)');
+    logger.log('VTT 자막 매니저가 시작되었습니다. (chrome.debugger로부터 데이터 수신 대기)');
   }
   
   /**
@@ -121,7 +122,7 @@ export class VTTSubtitleManager {
    */
   public stop(): void {
     // this.interceptActive = false; // interceptActive 플래그는 더 이상 fetch 가로채기에 사용되지 않음
-    console.log('VTT 자막 매니저가 중지되었습니다.');
+    logger.log('VTT 자막 매니저가 중지되었습니다.');
   }
 
   /**
@@ -137,7 +138,7 @@ export class VTTSubtitleManager {
     }
 
     const { url, content, cues, language } = subtitleData;
-    console.log(`[VTTSubtitleManager] Processing VTT data from background: ${url}, lang: ${language}, cues: ${cues.length}`);
+    logger.log(`[VTTSubtitleManager] Processing VTT data from background: ${url}, lang: ${language}, cues: ${cues.length}`);
 
     const subtitle: CapturedSubtitle = {
       url,
@@ -149,10 +150,10 @@ export class VTTSubtitleManager {
     // 언어에 따라 다르게 저장 (기존 로직과 유사하게)
     if (language === 'ko') {
       this.primarySubtitle = subtitle;
-      console.log('[VTTSubtitleManager] 한국어 자막이 primarySubtitle으로 설정됨 (from background)');
+      logger.log('[VTTSubtitleManager] 한국어 자막이 primarySubtitle으로 설정됨 (from background)');
     } else if (language === 'en') {
       this.secondarySubtitle = subtitle;
-      console.log('[VTTSubtitleManager] 영어 자막이 secondarySubtitle으로 설정됨 (from background)');
+      logger.log('[VTTSubtitleManager] 영어 자막이 secondarySubtitle으로 설정됨 (from background)');
     } else {
       // 언어를 판별할 수 없는 경우 (기존 로직 참고)
       const hasKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(content);
@@ -160,17 +161,17 @@ export class VTTSubtitleManager {
       
       if (hasKorean && !this.primarySubtitle) {
         this.primarySubtitle = subtitle;
-        console.log('[VTTSubtitleManager] 내용 분석 결과 한국어 자막으로 판단하여 primarySubtitle으로 설정됨 (from background)');
+        logger.log('[VTTSubtitleManager] 내용 분석 결과 한국어 자막으로 판단하여 primarySubtitle으로 설정됨 (from background)');
       } else if (hasEnglish && !this.secondarySubtitle) {
         this.secondarySubtitle = subtitle;
-        console.log('[VTTSubtitleManager] 내용 분석 결과 영어 자막으로 판단하여 secondarySubtitle으로 설정됨 (from background)');
+        logger.log('[VTTSubtitleManager] 내용 분석 결과 영어 자막으로 판단하여 secondarySubtitle으로 설정됨 (from background)');
       } else {
         if (!this.primarySubtitle) {
           this.primarySubtitle = subtitle;
-          console.log('[VTTSubtitleManager] 기본값으로 primarySubtitle으로 설정됨 (from background)');
+          logger.log('[VTTSubtitleManager] 기본값으로 primarySubtitle으로 설정됨 (from background)');
         } else if (!this.secondarySubtitle) {
           this.secondarySubtitle = subtitle;
-          console.log('[VTTSubtitleManager] 기본값으로 secondarySubtitle으로 설정됨 (from background)');
+          logger.log('[VTTSubtitleManager] 기본값으로 secondarySubtitle으로 설정됨 (from background)');
         }
       }
     }
@@ -180,7 +181,7 @@ export class VTTSubtitleManager {
       listener.onSubtitleLoaded(subtitle);
     });
 
-    console.log(`[VTTSubtitleManager] 자막 파일이 로드 및 처리되었습니다: ${language}, ${cues.length}개의 큐 (from background)`);
+    logger.log(`[VTTSubtitleManager] 자막 파일이 로드 및 처리되었습니다: ${language}, ${cues.length}개의 큐 (from background)`);
   }
   
   /**
@@ -214,7 +215,7 @@ export class VTTSubtitleManager {
       // 로그 제한
       const now = Date.now();
       if (!this._lastLogTime || now - this._lastLogTime > 5000) { // 5초에 한번만 출력
-        console.log('VTT 자막이 로드되지 않았습니다. 자막을 찾을 수 없습니다.');
+        logger.log('VTT 자막이 로드되지 않았습니다. 자막을 찾을 수 없습니다.');
         this._lastLogTime = now;
       }
     }

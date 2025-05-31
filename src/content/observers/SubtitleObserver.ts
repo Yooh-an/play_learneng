@@ -1,4 +1,5 @@
 import { findActiveSubtitles, extractSubtitleInfo, SubtitleInfo } from '../../utils/subtitleExtractor';
+import { logger } from '../../utils/logger';
 
 export interface SubtitleChangeListener {
   onSubtitleChanged: (subtitles: SubtitleInfo[]) => void;
@@ -55,7 +56,7 @@ export default class SubtitleObserver {
     // 초기 자막이 이미 화면에 있는 경우 처리
     this.processCurrentSubtitles();
     
-    console.log('Play LearnEng: 자막 변경 감지 시작됨');
+    logger.log('Play LearnEng: 자막 변경 감지 시작됨');
   }
   
   /**
@@ -65,7 +66,7 @@ export default class SubtitleObserver {
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
-      console.log('Play LearnEng: 자막 변경 감지 중지됨');
+      logger.log('Play LearnEng: 자막 변경 감지 중지됨');
     }
   }
   

@@ -1,19 +1,20 @@
 /**
  * 확장 프로그램 정리 및 원래 상태로 복원하는 유틸리티
  */
+import { logger } from './logger';
 
 /**
  * CSS 스타일 요소를 삭제하여 원래 자막 표시 복원
  */
 export function restoreOriginalSubtitles(): void {
   try {
-    console.log('원래 자막 표시 복원 중...');
+    logger.log('원래 자막 표시 복원 중...');
     
     // 주입된 스타일 제거
     const styleElement = document.getElementById('play-learneng-subtitle-hider');
     if (styleElement) {
       styleElement.remove();
-      console.log('주입된 스타일 제거됨');
+      logger.log('주입된 스타일 제거됨');
     }
     
     // data-pleng-controlled 속성이 있는 자막 컨테이너 찾기
@@ -43,9 +44,9 @@ export function restoreOriginalSubtitles(): void {
       subtitleContainer.removeAttribute('data-pleng-controlled');
       subtitleContainer.removeAttribute('data-pleng-original-display');
       
-      console.log('원래 자막이 복원되었습니다');
+      logger.log('원래 자막이 복원되었습니다');
     } else {
-      console.log('제어된 자막 컨테이너를 찾을 수 없음');
+      logger.log('제어된 자막 컨테이너를 찾을 수 없음');
     }
   } catch (error) {
     console.error('자막 복원 중 오류 발생:', error);
@@ -57,7 +58,7 @@ export function restoreOriginalSubtitles(): void {
  */
 export function cleanupExtensionResources(): void {
   try {
-    console.log('확장 프로그램 리소스 정리 중...');
+    logger.log('확장 프로그램 리소스 정리 중...');
     
     // 1. 원래 자막 복원
     restoreOriginalSubtitles();
@@ -71,7 +72,7 @@ export function cleanupExtensionResources(): void {
       delete window.capturedSubtitles;
     }
     
-    console.log('확장 프로그램 리소스 정리 완료');
+    logger.log('확장 프로그램 리소스 정리 완료');
   } catch (error) {
     console.error('리소스 정리 중 오류 발생:', error);
   }

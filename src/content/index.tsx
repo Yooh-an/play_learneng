@@ -12,14 +12,15 @@ import vttSubtitleManager from '../services/subtitles/vttSubtitleService';
 import { cleanupExtensionResources, restoreOriginalSubtitles } from '../utils/cleanupHelper';
 // 자막 트랙 관리 유틸리티 추가
 import { activateAllTextTracks, setSubtitleLanguage, getActiveSubtitleText } from '../utils/trackManager';
+import { logger } from '../utils/logger';
 
-console.log('Play LearnEng Content Script Loaded');
+logger.log('Play LearnEng Content Script Loaded');
 
 /**
  * 확장 프로그램 UI 초기화
  */
 async function initialize() {
-  console.log('Play LearnEng: 초기화 중...');
+  logger.log('Play LearnEng: 초기화 중...');
   
   // Extension context 유효성 확인
   if (!isExtensionContextValid()) {
@@ -31,7 +32,7 @@ async function initialize() {
   // 백그라운드 스크립트에 컨텐트 스크립트 준비 완료 알림
   try {
     const response = await chrome.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' });
-    console.log('[Content Script] Background notified of readiness:', response);
+    logger.log('[Content Script] Background notified of readiness:', response);
   } catch (error) {
     console.error('[Content Script] Error notifying background of readiness:', error);
     if (error.message.includes('Extension context invalidated')) {
@@ -41,7 +42,7 @@ async function initialize() {
   }
   
   // 디버깅: 쿠팡 플레이 DOM 구조 분석 실행
-  console.log('DOM 분석 결과:', analyzeVideoPlayerDOM());
+  logger.log('DOM 분석 결과:', analyzeVideoPlayerDOM());
   
   // 플레이어 및 자막 컨테이너 감지
   const detection = await detectPlayerWithRetry(15, 1000);
@@ -54,11 +55,11 @@ async function initialize() {
   const { videoElement, subtitleContainer } = detection;
   const videoInfo = extractVideoInfo();
   
-  console.log('Play LearnEng: 비디오 정보', videoInfo);
-  console.log('자막 컨테이너:', subtitleContainer);
+  logger.log('Play LearnEng: 비디오 정보', videoInfo);
+  logger.log('자막 컨테이너:', subtitleContainer);
   
   // TextTracks API를 사용한 자막 활성화 시도
-  console.log('텍스트 트랙 API를 통한 자막 활성화 시도...');
+  logger.log('텍스트 트랙 API를 통한 자막 활성화 시도...');
   activateAllTextTracks(videoElement);
   
   // 한국어와 영어 자막 모두 활성화 시도
@@ -67,29 +68,29 @@ async function initialize() {
     setTimeout(() => {
       // 활성화된 자막 텍스트 확인
       const activeSubtitles = getActiveSubtitleText(videoElement);
-      console.log('활성화된 자막 텍스트:', activeSubtitles);
+      logger.log('활성화된 자막 텍스트:', activeSubtitles);
     }, 1000);
   }, 2000);
 
   // 자막 요청 인터셉션 초기화 (chrome.debugger 사용으로 주석 처리)
-  // console.log('자막 인터셉션 초기화 중...');
+  // logger.log('자막 인터셉션 초기화 중...');
   // interceptSubtitleRequests();
   
   // VTT 자막 매니저 초기화 (chrome.debugger 사용으로 주석 처리 또는 로직 변경 필요)
   // vttSubtitleManager.start(); 
   // TODO: VTTSubtitleManager가 백그라운드로부터 받은 VTT 데이터를 사용하도록 수정 필요
-  console.log('[Content Script] VTTSubtitleManager 시작은 chrome.debugger 결과를 받아 처리하도록 변경 예정');
+  logger.log('[Content Script] VTTSubtitleManager 시작은 chrome.debugger 결과를 받아 처리하도록 변경 예정');
 
   // 백그라운드로부터 VTT 데이터 수신 리스너
   const messageListener = (message, sender, sendResponse) => {
     try {
       if (message.type === "VTT_RECEIVED") {
-        console.log('[Content Script] VTT_RECEIVED from background:', message.payload);
+        logger.log('[Content Script] VTT_RECEIVED from background:', message.payload);
         const { url, vtt, lang, videoId } = message.payload;
         
         try {
           const cues = parseVTT(vtt);
-          console.log(`[Content Script] Parsed VTT from background: ${cues.length} cues (${lang})`);
+          logger.log(`[Content Script] Parsed VTT from background: ${cues.length} cues (${lang})`);
           
           // VTTSubtitleManager를 통해 자막 데이터 업데이트
           if (vttSubtitleManager.processCapturedVTT) {
@@ -98,9 +99,9 @@ async function initialize() {
             console.warn('[Content Script] vttSubtitleManager.processCapturedVTT method not found. Manual processing needed.');
             // 수동으로 primary/secondary subtitle 업데이트 로직 (임시)
             if (lang === 'ko') {
-              console.log('[Content Script] Received Korean VTT, needs method to set in VTTManager');
+              logger.log('[Content Script] Received Korean VTT, needs method to set in VTTManager');
             } else if (lang === 'en') {
-              console.log('[Content Script] Received English VTT, needs method to set in VTTManager');
+              logger.log('[Content Script] Received English VTT, needs method to set in VTTManager');
             }
           }
 

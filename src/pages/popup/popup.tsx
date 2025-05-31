@@ -46,9 +46,9 @@ const Popup = () => {
     enabled: true,
     primaryLanguage: 'ko',
     secondaryLanguage: 'en',
-    fontSize: 16,
-    position: 75, // 75% from top (comfortable bottom position)
-    opacity: 0.9
+    fontSize: 25,
+    position: 85, // 85% from top (lower position)
+    opacity: 0.15
   });
   const [savedSubtitles, setSavedSubtitles] = useState<SavedSubtitle[]>([]);
   const [koreanVttSubtitles, setKoreanVttSubtitles] = useState<VttSubtitle[]>([]);
@@ -152,7 +152,19 @@ const Popup = () => {
     });
     
     chrome.storage.sync.get(['subtitleSettings', 'savedSubtitles'], (data) => {
-      if (data.subtitleSettings) setSettings(data.subtitleSettings as SubtitleSettings);
+      if (data.subtitleSettings) {
+        // Merge with updated default values for any missing properties
+        const updatedSettings = {
+          enabled: true,
+          primaryLanguage: 'ko' as const,
+          secondaryLanguage: 'en' as const,
+          fontSize: 25,
+          position: 85,
+          opacity: 0.15,
+          ...data.subtitleSettings
+        };
+        setSettings(updatedSettings);
+      }
       if (data.savedSubtitles) setSavedSubtitles(data.savedSubtitles as SavedSubtitle[]);
     });
 
@@ -445,8 +457,8 @@ const Popup = () => {
         <input
           id="font-size-range"
           type="range"
-          min="12"
-          max="30" // Increased max font size
+          min="15"
+          max="35" // Adjusted range with 25 as center value
           value={settings.fontSize}
           onChange={(e) => saveSettings({ ...settings, fontSize: parseInt(e.target.value) })}
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"

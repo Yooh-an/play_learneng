@@ -1,4 +1,5 @@
-console.log('Play LearnEng Background Script Loaded');
+// Play LearnEng Background Script
+import { logger } from '../utils/logger';
 
 // 설정 기본값
 const DEFAULT_SETTINGS = {
@@ -65,7 +66,7 @@ function clearPendingVttMessagesAndVideoId(tabId: number) {
   tabSubtitleData.delete(tabId);
   contentScriptReadyTabs.delete(tabId);
   targetTabs.delete(tabId);
-  console.log(`[Background] Cleared all data for tab ${tabId}`);
+  // 탭 데이터 정리
 }
 
 function isCoupangPlayMpdUrl(url: string): boolean {
@@ -75,7 +76,7 @@ function isCoupangPlayMpdUrl(url: string): boolean {
 // MPD 파싱 함수 (Service Worker 호환)
 async function parseMpdForSubtitles(mpdUrl: string, mpdContent: string): Promise<SubtitleUrls> {
   try {
-    console.log('[Background] Parsing MPD content with regex approach...');
+    // MPD 파싱 중...
     
     // AdaptationSet 요소들을 정규식으로 추출
     const adaptationSetRegex = /<AdaptationSet[^>]*>[\s\S]*?<\/AdaptationSet>/g;
@@ -94,13 +95,13 @@ async function parseMpdForSubtitles(mpdUrl: string, mpdContent: string): Promise
 
       // 자막 AdaptationSet인지 확인
       if (contentType === "text" || mimeType === "text/vtt" || mimeType === "application/ttml+xml") {
-        console.log('[Background] Found text AdaptationSet:', contentType, mimeType);
+        logger.log('[Background] Found text AdaptationSet:', contentType, mimeType);
         
         // lang 속성 추출
         const langMatch = adaptationSetXml.match(/lang=['"]([^'"]*)['"]/);
         const lang = langMatch ? langMatch[1] : '';
         
-        console.log('[Background] Language detected:', lang);
+        logger.log('[Background] Language detected:', lang);
 
         // Representation 요소들 추출
         const representationRegex = /<Representation[^>]*>[\s\S]*?<\/Representation>/g;
@@ -129,15 +130,15 @@ async function parseMpdForSubtitles(mpdUrl: string, mpdContent: string): Promise
               }
 
               if (subtitleUrl) {
-                console.log(`[Background] Found subtitle URL for lang ${lang}: ${subtitleUrl}`);
+                logger.log(`[Background] Found subtitle URL for lang ${lang}: ${subtitleUrl}`);
                 
                 // 언어별로 URL 저장
                 if (lang && (lang.toLowerCase().startsWith("ko") || lang.toLowerCase().startsWith("kor"))) {
                   koUrl = subtitleUrl;
-                  console.log('[Background] Korean subtitle URL found:', koUrl);
+                  logger.log('[Background] Korean subtitle URL found:', koUrl);
                 } else if (lang && (lang.toLowerCase().startsWith("en") || lang.toLowerCase().startsWith("eng"))) {
                   enUrl = subtitleUrl;
-                  console.log('[Background] English subtitle URL found:', enUrl);
+                  logger.log('[Background] English subtitle URL found:', enUrl);
                 }
               }
             }
@@ -146,7 +147,7 @@ async function parseMpdForSubtitles(mpdUrl: string, mpdContent: string): Promise
       }
     }
     
-    console.log('[Background] Final subtitle URLs:', { koUrl, enUrl });
+    logger.log('[Background] Final subtitle URLs:', { koUrl, enUrl });
     return { koUrl, enUrl };
   } catch (e) {
     console.error('[Background] Exception during MPD parsing:', e);
@@ -169,18 +170,18 @@ function sendVttToContentScript(tabId: number, vttUrl: string, vttContent: strin
   };
 
   if (contentScriptReadyTabs.has(tabId)) {
-    console.log(`[Background] Sending VTT to content script for tab ${tabId} (Lang: ${language})`);
+    logger.log(`[Background] Sending VTT to content script for tab ${tabId} (Lang: ${language})`);
     chrome.tabs.sendMessage(tabId, { type: 'VTT_RECEIVED', payload: messagePayload }, (response) => {
       if (chrome.runtime.lastError) {
         console.error(`[Background] Error sending VTT to content script for tab ${tabId}:`, chrome.runtime.lastError.message);
         contentScriptReadyTabs.delete(tabId);
         queuePendingVttMessage(tabId, messagePayload);
       } else {
-        console.log(`[Background] Successfully sent VTT to content script for tab ${tabId} (${language})`);
+        logger.log(`[Background] Successfully sent VTT to content script for tab ${tabId} (${language})`);
       }
     });
   } else {
-    console.log(`[Background] Content script for tab ${tabId} not ready. Queuing VTT (${language})`);
+    logger.log(`[Background] Content script for tab ${tabId} not ready. Queuing VTT (${language})`);
     queuePendingVttMessage(tabId, messagePayload);
   }
 }
@@ -192,7 +193,7 @@ function queuePendingVttMessage(tabId: number, payload: VttMessagePayload) {
   const queue = pendingVttMessages.get(tabId)!;
   if (!queue.find(p => p.url === payload.url && p.lang === payload.lang)) {
     queue.push(payload);
-    console.log(`[Background] Queued VTT for tab ${tabId} (${payload.lang}). Queue size: ${queue.length}`);
+    logger.log(`[Background] Queued VTT for tab ${tabId} (${payload.lang}). Queue size: ${queue.length}`);
   }
 }
 
@@ -200,7 +201,7 @@ function processPendingVttMessages(tabId: number) {
   if (pendingVttMessages.has(tabId) && contentScriptReadyTabs.has(tabId)) {
     const messages = pendingVttMessages.get(tabId)!;
     if (messages.length > 0) {
-      console.log(`[Background] Processing ${messages.length} pending VTT messages for tab ${tabId}`);
+      logger.log(`[Background] Processing ${messages.length} pending VTT messages for tab ${tabId}`);
       while (messages.length > 0) {
         const payload = messages.shift()!;
         sendVttToContentScript(tabId, payload.url, payload.vtt, payload.lang, payload.videoId);
@@ -213,9 +214,9 @@ function processPendingVttMessages(tabId: number) {
 // MPD 파일 처리 함수
 async function processMpdFile(mpdUrl: string, mpdContent: string, tabId: number) {
   try {
-    console.log('[Background] Processing MPD file:', mpdUrl);
+    logger.log('[Background] Processing MPD file:', mpdUrl);
     const subtitleUrls = await parseMpdForSubtitles(mpdUrl, mpdContent);
-    console.log('[Background] Extracted subtitle URLs from MPD:', subtitleUrls);
+    logger.log('[Background] Extracted subtitle URLs from MPD:', subtitleUrls);
 
     let currentData = tabSubtitleData.get(tabId) || { videoId: tabVideoIdMap.get(tabId) };
     let changed = false;
@@ -269,7 +270,7 @@ async function processMpdFile(mpdUrl: string, mpdContent: string, tabId: number)
         if (chrome.runtime.lastError) {
           console.error('[Background] Error saving VTT content to chrome.storage.local:', chrome.runtime.lastError);
         } else {
-          console.log('[Background] VTT content saved to chrome.storage.local:', storageUpdates);
+          logger.log('[Background] VTT content saved to chrome.storage.local:', storageUpdates);
         }
       });
     }
@@ -281,14 +282,14 @@ async function processMpdFile(mpdUrl: string, mpdContent: string, tabId: number)
 // Chrome Extension 이벤트 리스너들
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
-    console.log('Play LearnEng installed');
+    logger.log('Play LearnEng installed');
     await chrome.storage.sync.set({
       settings: DEFAULT_SETTINGS,
       savedSubtitles: []
     });
-    chrome.runtime.openOptionsPage();
+    // 설치 후 자동으로 옵션 페이지를 열지 않음
   } else if (details.reason === 'update') {
-    console.log('Play LearnEng updated');
+    logger.log('Play LearnEng updated');
     try {
       const data = await chrome.storage.sync.get('settings');
       if (!data.settings) {
@@ -315,7 +316,7 @@ chrome.webRequest.onCompleted.addListener(
     
     // MPD 파일 감지 및 처리
     if (isCoupangPlayMpdUrl(url)) {
-      console.log('[Background] MPD file detected via webRequest:', url);
+      logger.log('[Background] MPD file detected via webRequest:', url);
       try {
         const response = await fetch(url);
         if (response.ok) {
@@ -343,14 +344,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'CONTENT_SCRIPT_READY') {
-    console.log(`[Background] Content script READY message received from tab ${tabId}`);
+    logger.log(`[Background] Content script READY message received from tab ${tabId}`);
     contentScriptReadyTabs.add(tabId);
     processPendingVttMessages(tabId);
     sendResponse({ success: true });
   } 
   else if (message.type === 'VIDEO_ELEMENT_FOUND') {
     if (message.payload?.videoId) {
-      console.log(`[Background] VIDEO_ELEMENT_FOUND from tab ${tabId}: videoId = ${message.payload.videoId}`);
+      logger.log(`[Background] VIDEO_ELEMENT_FOUND from tab ${tabId}: videoId = ${message.payload.videoId}`);
       tabVideoIdMap.set(tabId, message.payload.videoId);
       
       let currentData = tabSubtitleData.get(tabId);
@@ -367,7 +368,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } 
   else if (message.type === 'REQUEST_SUBTITLE_CONTENT') {
     const { url: vttUrlToFetch, lang } = message.payload;
-    console.log(`[Background] Received REQUEST_SUBTITLE_CONTENT for URL: ${vttUrlToFetch}, Lang: ${lang}`);
+    logger.log(`[Background] Received REQUEST_SUBTITLE_CONTENT for URL: ${vttUrlToFetch}, Lang: ${lang}`);
     
     fetch(vttUrlToFetch)
       .then(response => {
@@ -436,7 +437,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
       
-      console.log('[Background] Adding new subtitle to review tab:', finalNewSubtitle);
+      logger.log('[Background] Adding new subtitle to review tab:', finalNewSubtitle);
       
       // 새 자막을 목록 앞에 추가
       savedSubtitles.unshift(finalNewSubtitle);
@@ -447,7 +448,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           console.error("[Background] Error setting savedSubtitles:", chrome.runtime.lastError.message);
           sendResponse({ status: 'error', message: chrome.runtime.lastError.message });
         } else {
-          console.log('[Background] Subtitle saved to review tab:', finalNewSubtitle);
+          logger.log('[Background] Subtitle saved to review tab:', finalNewSubtitle);
           sendResponse({ status: 'success', subtitle: finalNewSubtitle });
         }
       });
