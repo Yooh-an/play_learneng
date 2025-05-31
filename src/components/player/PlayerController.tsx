@@ -502,10 +502,12 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         primaryElement.textContent = primaryTextToDisplay;
         primaryElement.style.cssText = `
           color: #ffffff;
-          padding: 4px 10px; margin-bottom: 5px;
+          padding: 6px 12px; margin-bottom: 5px;
           font-size: ${subtitleSettings.fontSize}px; font-weight: 500; max-width: 90%;
           text-align: center; line-height: 1.4; white-space: pre-wrap;
-          text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
+          background-color: rgba(0, 0, 0, ${subtitleSettings.opacity});
+          border-radius: 4px;
+          text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
         `;
         container.appendChild(primaryElement);
       }
@@ -526,10 +528,12 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       secondaryElement.textContent = secondaryTextToDisplay;
       secondaryElement.style.cssText = `
         color: #ffffff;
-        padding: 4px 10px;
+        padding: 6px 12px;
         font-size: ${subtitleSettings.fontSize}px; font-weight: 500; max-width: 90%;
         text-align: center; line-height: 1.4; white-space: pre-wrap; margin-bottom: 0;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), -1px -1px 2px rgba(0, 0, 0, 0.8), 1px -1px 2px rgba(0, 0, 0, 0.8), -1px 1px 2px rgba(0, 0, 0, 0.8);
+        background-color: rgba(0, 0, 0, ${subtitleSettings.opacity});
+        border-radius: 4px;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
       `;
       container.appendChild(secondaryElement);
     }
