@@ -20,7 +20,7 @@ interface SubtitleSettings {
   primaryLanguage: 'ko' | 'en';
   secondaryLanguage: 'ko' | 'en';
   fontSize: number;
-  position: 'bottom' | 'top';
+  position: number; // 0 (top) to 100 (bottom) percentage
   opacity: number;
 }
 
@@ -68,7 +68,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
             primaryLanguage: 'ko',
             secondaryLanguage: 'en',
             fontSize: 20,
-            position: 'bottom',
+            position: 80, // 80% from top (near bottom)
             opacity: 0.9,
           };
           console.log('[PlayerController] No subtitleSettings found, initializing with default:', defaultSettings);
@@ -454,17 +454,29 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       if (videoContainer) {
         container = document.createElement('div');
         container.id = 'play-learneng-subtitle-container';
-        container.style.cssText = `
-          position: absolute; bottom: 70px; left: 0; right: 0;
-          display: flex; flex-direction: column; align-items: center; justify-content: center;
-          width: 100%; z-index: 9999; pointer-events: none; padding: 0 30px; box-sizing: border-box;
-        `;
         videoContainer.appendChild(container);
       } else {
         console.warn('비디오 컨테이너를 찾을 수 없어 자막을 표시할 수 없습니다.');
         return;
       }
     }
+    
+    // Update container position based on settings
+    if (subtitleSettings) {
+      // Convert percentage to pixel position
+      // 0% = top: 20px, 100% = bottom: 70px
+      const isTop = subtitleSettings.position < 50;
+      const positionValue = isTop 
+        ? `${20 + (subtitleSettings.position * 0.5)}px` // 0% = 20px, 50% = 45px
+        : `${70 + ((subtitleSettings.position - 50) * 0.6)}px`; // 50% = 70px, 100% = 100px
+      
+      container.style.cssText = `
+        position: absolute; ${isTop ? 'top' : 'bottom'}: ${positionValue}; left: 0; right: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        width: 100%; z-index: 9999; pointer-events: none; padding: 0 30px; box-sizing: border-box;
+      `;
+    }
+    
     container.innerHTML = ''; // Always clear previous subtitles
 
     // If subtitle settings are not loaded yet, don't render anything.

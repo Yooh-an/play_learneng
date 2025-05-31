@@ -17,7 +17,7 @@ interface SubtitleSettings {
   primaryLanguage: 'ko' | 'en';
   secondaryLanguage: 'ko' | 'en';
   fontSize: number;
-  position: 'bottom' | 'top';
+  position: number; // 0 (top) to 100 (bottom) percentage
   opacity: number;
 }
 
@@ -38,16 +38,6 @@ interface SavedSubtitle {
   episodeTitle?: string;
 }
 
-// Define SubtitleSettings if not already (should match other files)
-interface SubtitleSettings {
-  enabled: boolean;
-  primaryLanguage: 'ko' | 'en';
-  secondaryLanguage: 'ko' | 'en';
-  fontSize: number;
-  position: 'bottom' | 'top';
-  opacity: number;
-}
-
 
 const Popup = () => {
   const [activeTab, setActiveTab] = useState<TabType>('review');
@@ -57,7 +47,7 @@ const Popup = () => {
     primaryLanguage: 'ko',
     secondaryLanguage: 'en',
     fontSize: 16,
-    position: 'bottom',
+    position: 80, // 80% from top (near bottom)
     opacity: 0.9
   });
   const [savedSubtitles, setSavedSubtitles] = useState<SavedSubtitle[]>([]);
@@ -187,7 +177,7 @@ const Popup = () => {
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
       if (areaName === 'sync') {
         if (changes.subtitleSettings) {
-          setSettings(changes.subtitleSettings.newValue as SubtitleSettings || { enabled: true, primaryLanguage: 'ko', secondaryLanguage: 'en', fontSize: 16, position: 'bottom', opacity: 0.9 });
+          setSettings(changes.subtitleSettings.newValue as SubtitleSettings || { enabled: true, primaryLanguage: 'ko', secondaryLanguage: 'en', fontSize: 16, position: 80, opacity: 0.9 });
         }
         if (changes.savedSubtitles) {
           setSavedSubtitles(changes.savedSubtitles.newValue as SavedSubtitle[] || []);
@@ -469,27 +459,17 @@ const Popup = () => {
 
       <div>
         <label className="block text-sm font-medium mb-1">자막 위치</label>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => saveSettings({ ...settings, position: 'bottom' })}
-            className={`flex-1 py-2 px-3 text-sm rounded transition-colors ${
-              settings.position === 'bottom' 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            하단
-          </button>
-          <button
-            onClick={() => saveSettings({ ...settings, position: 'top' })}
-            className={`flex-1 py-2 px-3 text-sm rounded transition-colors ${
-              settings.position === 'top' 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            상단
-          </button>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={settings.position}
+          onChange={(e) => saveSettings({ ...settings, position: parseInt(e.target.value) })}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        />
+        <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <span>상단</span>
+          <span>하단</span>
         </div>
       </div>
 
