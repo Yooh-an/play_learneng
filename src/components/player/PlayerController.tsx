@@ -446,6 +446,47 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
   };
   
   const renderDualSubtitles = useCallback((subtitle: ActiveSubtitle) => {
+    // Inject CSS to ensure our styles take precedence
+    const ensureStyles = () => {
+      if (!document.getElementById('play-learneng-subtitle-styles')) {
+        const style = document.createElement('style');
+        style.id = 'play-learneng-subtitle-styles';
+        style.textContent = `
+          .play-learneng-subtitle-text {
+            display: inline-block !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: 90% !important;
+            box-sizing: border-box !important;
+            text-align: center !important;
+            margin: 0 auto !important;
+          }
+          #play-learneng-subtitle-container {
+            text-align: center !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0 !important;
+          }
+          #play-learneng-subtitle-container > div {
+            display: inline-block !important;
+            width: auto !important;
+            margin: 0 auto !important;
+          }
+          #play-learneng-subtitle-container > div:first-child {
+            margin-bottom: 0 !important;
+          }
+          #play-learneng-subtitle-container > div:last-child {
+            margin-top: 8px !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    };
+    
+    ensureStyles();
+    
     let container = document.getElementById('play-learneng-subtitle-container');
     if (!container) {
       const videoContainer = document.querySelector('.video-js') || 
@@ -468,10 +509,24 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       const topPercentage = 5 + (subtitleSettings.position * 0.8); // 5% to 85%
       
       container.style.cssText = `
-        position: absolute; top: ${topPercentage}%; left: 0; right: 0;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        width: 100%; z-index: 9999; pointer-events: none; padding: 0 30px; box-sizing: border-box;
+        position: absolute !important; top: ${topPercentage}% !important; left: 0 !important; right: 0 !important;
+        display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;
+        width: 100% !important; z-index: 9999 !important; pointer-events: none !important; padding: 0 30px !important; box-sizing: border-box !important;
+        text-align: center !important; gap: 0 !important;
       `;
+      
+      // Force reapply styles after a short delay to ensure they stick
+      setTimeout(() => {
+        ensureStyles();
+        if (container) {
+          container.style.cssText = `
+            position: absolute !important; top: ${topPercentage}% !important; left: 0 !important; right: 0 !important;
+            display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;
+            width: 100% !important; z-index: 9999 !important; pointer-events: none !important; padding: 0 30px !important; box-sizing: border-box !important;
+            text-align: center !important; gap: 0 !important;
+          `;
+        }
+      }, 100);
     }
     
     container.innerHTML = ''; // Always clear previous subtitles
@@ -501,13 +556,17 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         primaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${primaryLang}`;
         primaryElement.textContent = primaryTextToDisplay;
         primaryElement.style.cssText = `
-          color: #ffffff;
-          padding: 6px 12px; margin-bottom: 5px;
-          font-size: ${subtitleSettings.fontSize}px; font-weight: 500; max-width: 90%;
-          text-align: center; line-height: 1.4; white-space: pre-wrap;
-          background-color: rgba(0, 0, 0, ${subtitleSettings.opacity});
-          border-radius: 4px;
-          text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+          color: #ffffff !important;
+          padding: 6px 12px !important; margin: 0 auto 0 auto !important;
+          font-size: ${subtitleSettings.fontSize}px !important; font-weight: 500 !important; max-width: 90% !important;
+          text-align: center !important; line-height: 1.4 !important; white-space: pre-wrap !important;
+          background-color: rgba(0, 0, 0, ${subtitleSettings.opacity}) !important;
+          border-radius: 4px !important;
+          text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+          display: inline-block !important;
+          width: auto !important;
+          min-width: 0 !important;
+          box-sizing: border-box !important;
         `;
         container.appendChild(primaryElement);
       }
@@ -527,13 +586,17 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLang}`;
       secondaryElement.textContent = secondaryTextToDisplay;
       secondaryElement.style.cssText = `
-        color: #ffffff;
-        padding: 6px 12px;
-        font-size: ${subtitleSettings.fontSize}px; font-weight: 500; max-width: 90%;
-        text-align: center; line-height: 1.4; white-space: pre-wrap; margin-bottom: 0;
-        background-color: rgba(0, 0, 0, ${subtitleSettings.opacity});
-        border-radius: 4px;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        color: #ffffff !important;
+        padding: 6px 12px !important; margin: 8px auto 0 auto !important;
+        font-size: ${subtitleSettings.fontSize}px !important; font-weight: 500 !important; max-width: 90% !important;
+        text-align: center !important; line-height: 1.4 !important; white-space: pre-wrap !important;
+        background-color: rgba(0, 0, 0, ${subtitleSettings.opacity}) !important;
+        border-radius: 4px !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+        display: inline-block !important;
+        width: auto !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
       `;
       container.appendChild(secondaryElement);
     }
