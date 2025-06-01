@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import useSubtitleStore from '../../store/subtitleStore';
-
-console.log('[DualSubtitles] Component SCRIPT LOADED'); // 최상단에 추가
+import { logger } from '../../utils/logger';
+logger.log('[DualSubtitles] Component SCRIPT LOADED'); // 최상단에 추가
 
 interface DualSubtitlesProps {
   style?: React.CSSProperties;
@@ -53,7 +53,7 @@ const getPathToElement = (element: HTMLElement) => {
 };
 
 const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) => {
-  console.log('[DualSubtitles] Component RENDERING/MOUNTING'); // 컴포넌트 함수 시작 부분에 추가
+  logger.log('[DualSubtitles] Component RENDERING/MOUNTING'); // 컴포넌트 함수 시작 부분에 추가
   const { 
     koreanSubtitle,
     englishSubtitle,
@@ -67,7 +67,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('[DualSubtitles] Settings useEffect RUNNING'); // useEffect 시작 부분에 추가
+    logger.log('[DualSubtitles] Settings useEffect RUNNING'); // useEffect 시작 부분에 추가
     const fetchSettings = async () => {
       const settingsResult: { subtitleSettings?: SubtitleSettings } = await new Promise(resolve => {
         chrome.storage.sync.get('subtitleSettings', data => resolve(data as { subtitleSettings?: SubtitleSettings }));
@@ -151,9 +151,9 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
       e.stopPropagation(); // 이벤트 버블링 방지
       e.preventDefault(); // 기본 동작 방지
       
-      console.log('[DualSubtitles] Subtitle clicked:', text);
+      logger.log('[DualSubtitles] Subtitle clicked:', text);
       
-      console.log('클릭한 요소 정보:', {
+      logger.log('클릭한 요소 정보:', {
         tagName: element.tagName,
         id: element.id,
         className: element.className,
@@ -190,7 +190,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
           secondaryText: secondaryText || '',
         };
         
-        console.log('[DualSubtitles] Saving subtitle directly to storage:', reviewSubtitle);
+        logger.log('[DualSubtitles] Saving subtitle directly to storage:', reviewSubtitle);
         
         // Storage API를 직접 사용하여 저장
         chrome.storage.sync.get(['savedSubtitles'], (data) => {
@@ -202,7 +202,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
               console.error('[DualSubtitles] Storage error:', chrome.runtime.lastError);
               setFeedbackMessage('자막 저장 중 오류가 발생했습니다.');
             } else {
-              console.log('[DualSubtitles] Subtitle saved to storage successfully');
+              logger.log('[DualSubtitles] Subtitle saved to storage successfully');
               // 저장된 자막 일부를 피드백 메시지에 포함
               const shortPrimaryText = primaryText ? (primaryText.substring(0, 15) + (primaryText.length > 15 ? '...' : '')) : "";
               setFeedbackMessage(`"${shortPrimaryText}" 자막이 단어장에 저장되었습니다!`);
@@ -214,7 +214,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
                   payload: reviewSubtitle 
                 });
               } catch (err) {
-                console.log('[DualSubtitles] Failed to notify background, but storage succeeded:', err);
+                logger.log('[DualSubtitles] Failed to notify background, but storage succeeded:', err);
               }
               
               // 2초 후 피드백 메시지 숨기기
@@ -235,8 +235,8 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
 
   const updateSubtitles = useCallback(() => {
     let container = containerRef.current;
-    console.log('[DualSubtitles] updateSubtitles CALLED. Initial currentSettings:', JSON.stringify(currentSettings)); // 이 로그는 유지
-    console.log('[DualSubtitles] updateSubtitles CALLED. displayMode from store:', displayMode);
+    logger.log('[DualSubtitles] updateSubtitles CALLED. Initial currentSettings:', JSON.stringify(currentSettings)); // 이 로그는 유지
+    logger.log('[DualSubtitles] updateSubtitles CALLED. displayMode from store:', displayMode);
 
     if (!container) {
       container = document.createElement('div');
@@ -263,14 +263,14 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
     container.innerHTML = ''; // Clear existing subtitles
     
     if (!currentSettings) { 
-      console.log('[DualSubtitles] currentSettings is NULL, returning.');
+      logger.log('[DualSubtitles] currentSettings is NULL, returning.');
       return;
     }
 
     // Log the crucial values just before the decision logic
-    console.log('[DualSubtitles] DECISION POINT. currentSettings.enabled:', currentSettings.enabled, 'Primary Lang:', currentSettings.primaryLanguage);
-    console.log('[DualSubtitles] DECISION POINT. koreanSubtitle:', koreanSubtitle ? `"${koreanSubtitle.substring(0,10)}..."` : 'null');
-    console.log('[DualSubtitles] DECISION POINT. englishSubtitle:', englishSubtitle ? `"${englishSubtitle.substring(0,10)}..."` : 'null');
+    logger.log('[DualSubtitles] DECISION POINT. currentSettings.enabled:', currentSettings.enabled, 'Primary Lang:', currentSettings.primaryLanguage);
+    logger.log('[DualSubtitles] DECISION POINT. koreanSubtitle:', koreanSubtitle ? `"${koreanSubtitle.substring(0,10)}..."` : 'null');
+    logger.log('[DualSubtitles] DECISION POINT. englishSubtitle:', englishSubtitle ? `"${englishSubtitle.substring(0,10)}..."` : 'null');
 
     const primaryStyle: React.CSSProperties = {
       color: '#ffffff',
@@ -287,19 +287,19 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
 
     if (!currentSettings.enabled) {
       // Feature is disabled, show only the primary language subtitle
-      console.log('[DualSubtitles] LOGIC: Rendering with enabled: false');
+      logger.log('[DualSubtitles] LOGIC: Rendering with enabled: false');
       if (currentSettings.primaryLanguage === 'ko' && koreanSubtitle) {
-        console.log('[DualSubtitles] LOGIC: Rendering KO sub as primary');
+        logger.log('[DualSubtitles] LOGIC: Rendering KO sub as primary');
         renderSubtitleInternal(container, koreanSubtitle, primaryStyle, 'ko');
       } else if (currentSettings.primaryLanguage === 'en' && englishSubtitle) {
-        console.log('[DualSubtitles] LOGIC: Rendering EN sub as primary');
+        logger.log('[DualSubtitles] LOGIC: Rendering EN sub as primary');
         renderSubtitleInternal(container, englishSubtitle, primaryStyle, 'en');
       } else {
-        console.log('[DualSubtitles] LOGIC: No primary subtitle to render (lang:', currentSettings.primaryLanguage, 'koSub:', !!koreanSubtitle, 'enSub:', !!englishSubtitle, ')');
+        logger.log('[DualSubtitles] LOGIC: No primary subtitle to render (lang:', currentSettings.primaryLanguage, 'koSub:', !!koreanSubtitle, 'enSub:', !!englishSubtitle, ')');
       }
     } else {
       // Feature is enabled, use displayMode and settings to determine rendering
-      console.log('[DualSubtitles] LOGIC: Rendering with enabled: true, displayMode:', displayMode);
+      logger.log('[DualSubtitles] LOGIC: Rendering with enabled: true, displayMode:', displayMode);
       const isKoreanPrimary = currentSettings.primaryLanguage === 'ko';
       
       const primarySubText = isKoreanPrimary ? koreanSubtitle : englishSubtitle;
@@ -338,7 +338,7 @@ const DualSubtitles: React.FC<DualSubtitlesProps> = ({ style, source = 'dom' }) 
   }, [displayMode, koreanSubtitle, englishSubtitle, renderSubtitleInternal, currentSettings]);
   
   useEffect(() => {
-    console.log('[DualSubtitles] updateSubtitles useEffect RUNNING'); // useEffect 시작 부분에 추가
+    logger.log('[DualSubtitles] updateSubtitles useEffect RUNNING'); // useEffect 시작 부분에 추가
     updateSubtitles();
     
     return () => {

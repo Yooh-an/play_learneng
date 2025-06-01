@@ -3,6 +3,7 @@ import SubtitleObserver, { SubtitleChangeListener } from '../../content/observer
 import useSubtitleStore, { ActiveSubtitle } from '../../store/subtitleStore';
 import { v4 as uuidv4 } from 'uuid';
 import vttSubtitleManager from '../../services/subtitles/vttSubtitleService';
+import { logger } from '../../utils/logger';
 
 interface PlayerControllerProps {
   videoElement: HTMLVideoElement;
@@ -59,7 +60,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
           return;
         }
         if (data.subtitleSettings) {
-          console.log('[PlayerController] Fetched subtitleSettings:', data.subtitleSettings);
+          logger.log('[PlayerController] Fetched subtitleSettings:', data.subtitleSettings);
           setSubtitleSettings(data.subtitleSettings);
         } else {
           // Initialize with default settings if not found
@@ -71,11 +72,11 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
             position: 85, // 85% from top (lower position)
             opacity: 0.15,
           };
-          console.log('[PlayerController] No subtitleSettings found, initializing with default:', defaultSettings);
+          logger.log('[PlayerController] No subtitleSettings found, initializing with default:', defaultSettings);
           setSubtitleSettings(defaultSettings);
           chrome.storage.sync.set({ subtitleSettings: defaultSettings }, () => {
             if (chrome.runtime.lastError) {
-              console.error('[PlayerController] Error saving default subtitleSettings:', chrome.runtime.lastError.message);
+              
             }
           });
         }
@@ -86,7 +87,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
 
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
       if (areaName === 'sync' && changes.subtitleSettings) {
-        console.log('[PlayerController] subtitleSettings changed:', changes.subtitleSettings.newValue);
+        logger.log('[PlayerController] subtitleSettings changed:', changes.subtitleSettings.newValue);
         setSubtitleSettings(changes.subtitleSettings.newValue);
       }
     };
@@ -101,7 +102,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
   // 비디오 정보 설정 (videoInfo 객체 자체를 의존성으로)
   useEffect(() => {
     if (videoInfo && videoInfo.videoId && videoInfo.title) {
-      console.log('[PlayerController] videoInfo updated:', videoInfo);
+      logger.log('[PlayerController] videoInfo updated:', videoInfo);
       setCurrentVideo(videoInfo.videoId, videoInfo.title);
     } else {
       console.warn('[PlayerController] videoInfo is incomplete:', videoInfo);
@@ -143,12 +144,12 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
 
   // DOM 자막 및 VTT 초기화 (마운트 시 한 번만)
   useEffect(() => {
-    console.log('[PlayerController] Initializing subtitle systems...');
+    logger.log('[PlayerController] Initializing subtitle systems...');
     let lastDomSubtitle = ''; // DOM 자막 처리를 위한 내부 상태
 
     const domSubtitleListener: SubtitleChangeListener = {
       onSubtitleChanged: (subtitles) => {
-        console.log('[PlayerController] DOM subtitles detected:', subtitles);
+        logger.log('[PlayerController] DOM subtitles detected:', subtitles);
         if (subtitles.length > 0) {
           const validSubtitles = subtitles.filter(sub => {
             const text = sub.text.trim();
@@ -158,7 +159,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
 
           // Skip if subtitleSettings not loaded yet
           if (!subtitleSettings) {
-            console.log('[PlayerController] subtitleSettings not loaded yet, skipping DOM subtitle processing');
+            logger.log('[PlayerController] subtitleSettings not loaded yet, skipping DOM subtitle processing');
             return;
           }
 
@@ -187,7 +188,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
           if (!currentVttCues.primary?.text && !currentVttCues.secondary?.text) {
             const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles;
             if (currentActiveStoreSubtitles?.primaryText !== primaryText || currentActiveStoreSubtitles?.secondaryText !== secondaryText) {
-              console.log('[PlayerController] Setting DOM subtitles as active (VTT not present):', { primaryText, secondaryText });
+              logger.log('[PlayerController] Setting DOM subtitles as active (VTT not present):', { primaryText, secondaryText });
               setActiveSubtitles({ primaryText, secondaryText, timestamp: videoElement.currentTime });
             }
           }
@@ -196,7 +197,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       onSubtitleCleared: () => {
         const currentVttCues = vttSubtitleManager.getActiveSubtitles(videoElement.currentTime, subtitleSync);
         if (!currentVttCues.primary?.text && !currentVttCues.secondary?.text) {
-          console.log('[PlayerController] DOM subtitles cleared, and no VTT. Clearing active subtitles.');
+          logger.log('[PlayerController] DOM subtitles cleared, and no VTT. Clearing active subtitles.');
           setActiveSubtitles(null);
         }
         lastDomSubtitle = '';
@@ -208,13 +209,13 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     domObserver.start();
     
     vttSubtitleManager.start();
-    console.log('[Content Script] PlayerController mounted, VTTManager ready. Sending CONTENT_SCRIPT_READY to background.');
+    logger.log('[Content Script] PlayerController mounted, VTTManager ready. Sending CONTENT_SCRIPT_READY to background.');
     chrome.runtime.sendMessage({ type: "CONTENT_SCRIPT_READY" })
       .then(response => {
         if (chrome.runtime.lastError) {
           console.warn('[Content Script] Error sending/receiving ack for CONTENT_SCRIPT_READY:', chrome.runtime.lastError.message);
         } else if (response && response.success) {
-          console.log('[Content Script] Background acknowledged CONTENT_SCRIPT_READY message.');
+          logger.log('[Content Script] Background acknowledged CONTENT_SCRIPT_READY message.');
         } else {
           console.warn('[Content Script] Background did not acknowledge CONTENT_SCRIPT_READY or sent unexpected response:', response);
         }
@@ -223,11 +224,11 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
 
     const vttListener = {
       onSubtitleLoaded: (loadedSubtitle: import('../../services/subtitles/vttSubtitleService').CapturedSubtitle) => { 
-        console.log(`[PlayerController] VTT subtitle file loaded via VTTManager listener: ${loadedSubtitle.url}, lang: ${loadedSubtitle.language}`);
+        logger.log(`[PlayerController] VTT subtitle file loaded via VTTManager listener: ${loadedSubtitle.url}, lang: ${loadedSubtitle.language}`);
         
         // Skip if subtitleSettings not loaded yet
         if (!subtitleSettings) {
-          console.log('[PlayerController] subtitleSettings not loaded yet, skipping VTT processing');
+          logger.log('[PlayerController] subtitleSettings not loaded yet, skipping VTT processing');
           return;
         }
         
@@ -252,25 +253,25 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
             secondaryText = vttManagerSecondaryText; 
         }
         
-        console.log('[PlayerController DEBUG] onSubtitleLoaded - Values before setActiveSubtitles:');
-        console.log('[PlayerController DEBUG]   currentTime:', currentTime);
-        console.log('[PlayerController DEBUG]   vttCues.primary:', vttCues.primary);
-        console.log('[PlayerController DEBUG]   vttCues.secondary:', vttCues.secondary);
-        console.log('[PlayerController DEBUG]   vttManagerPrimaryText (detected language):', vttManagerPrimaryText);
-        console.log('[PlayerController DEBUG]   vttManagerSecondaryText (detected language):', vttManagerSecondaryText);
-        console.log('[PlayerController DEBUG]   primaryLanguage (user setting):', subtitleSettings.primaryLanguage);
-        console.log('[PlayerController DEBUG]   primaryText (for display):', primaryText);
-        console.log('[PlayerController DEBUG]   secondaryText (for display):', secondaryText);
-        console.log('[PlayerController DEBUG]   lastDomSubtitle:', lastDomSubtitle);
+        logger.log('[PlayerController DEBUG] onSubtitleLoaded - Values before setActiveSubtitles:');
+        logger.log('[PlayerController DEBUG]   currentTime:', currentTime);
+        logger.log('[PlayerController DEBUG]   vttCues.primary:', vttCues.primary);
+        logger.log('[PlayerController DEBUG]   vttCues.secondary:', vttCues.secondary);
+        logger.log('[PlayerController DEBUG]   vttManagerPrimaryText (detected language):', vttManagerPrimaryText);
+        logger.log('[PlayerController DEBUG]   vttManagerSecondaryText (detected language):', vttManagerSecondaryText);
+        logger.log('[PlayerController DEBUG]   primaryLanguage (user setting):', subtitleSettings.primaryLanguage);
+        logger.log('[PlayerController DEBUG]   primaryText (for display):', primaryText);
+        logger.log('[PlayerController DEBUG]   secondaryText (for display):', secondaryText);
+        logger.log('[PlayerController DEBUG]   lastDomSubtitle:', lastDomSubtitle);
 
         if (primaryText || secondaryText) {
-            console.log('[PlayerController] VTT loaded, setting VTT subtitles as active:', { primaryText, secondaryText });
+            logger.log('[PlayerController] VTT loaded, setting VTT subtitles as active:', { primaryText, secondaryText });
             setActiveSubtitles({ primaryText, secondaryText, timestamp: currentTime });
         } else if (!lastDomSubtitle) { 
-            console.log('[PlayerController] VTT loaded, but no VTT text for current time and no lastDomSubtitle. Clearing active subtitles.');
+            logger.log('[PlayerController] VTT loaded, but no VTT text for current time and no lastDomSubtitle. Clearing active subtitles.');
             setActiveSubtitles(null);
         } else {
-            console.log('[PlayerController] VTT loaded, but no VTT text for current time. DOM subtitle might be active or will be set by observer.');
+            logger.log('[PlayerController] VTT loaded, but no VTT text for current time. DOM subtitle might be active or will be set by observer.');
         }
       },
       onSubtitleError: (error: Error) => {
@@ -280,7 +281,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     vttSubtitleManager.addListener(vttListener);
     
     return () => {
-      console.log('[PlayerController] Cleaning up subtitle systems...');
+      logger.log('[PlayerController] Cleaning up subtitle systems...');
       domObserver.removeListener(domSubtitleListener);
       domObserver.stop();
       vttSubtitleManager.removeListener(vttListener);
@@ -355,7 +356,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       console.warn('[PlayerController] videoId is not available for tryLoadAlternativeSubtitles.');
       return;
     }
-    console.log('다른 언어 자막 파일 강제 요청 시도 중...');
+    logger.log('다른 언어 자막 파일 강제 요청 시도 중...');
     const videoId = videoInfo.videoId; 
     const subtitlePatterns = ['ko', 'en', 'korean', 'english', 'ko-KR', 'en-US', 'kor', 'eng'];
     const attemptedUrls = new Set<string>();
@@ -533,7 +534,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
 
     // If subtitle settings are not loaded yet, don't render anything.
     if (!subtitleSettings) {
-      console.log('[PlayerController] Subtitle settings not yet loaded. Not rendering subtitles.');
+      logger.log('[PlayerController] Subtitle settings not yet loaded. Not rendering subtitles.');
       return;
     }
 

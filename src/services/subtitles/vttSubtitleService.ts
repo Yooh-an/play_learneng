@@ -56,7 +56,7 @@ export async function loadVTTSubtitle(url: string, language: string = 'unknown')
       language
     };
   } catch (error) {
-    console.error('VTT 자막 로드 실패:', error);
+    logger.error('VTT 자막 로드 실패:', error);
     return null;
   }
 }
@@ -130,7 +130,7 @@ export class VTTSubtitleManager {
    */
   public processCapturedVTT(subtitleData: CapturedSubtitle): void {
     if (!subtitleData || !subtitleData.cues) {
-      console.warn('[VTTSubtitleManager] Invalid subtitle data received from background.');
+      logger.warn('[VTTSubtitleManager] Invalid subtitle data received from background.');
       this.listeners.forEach(listener => {
         listener.onSubtitleError(new Error('Invalid subtitle data received'));
       });

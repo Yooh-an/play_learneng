@@ -1,6 +1,7 @@
 /**
  * 쿠팡 플레이 영상 플레이어 감지 및 관련 요소 선택을 위한 유틸리티
  */
+import { logger } from './logger';
 
 /**
  * 쿠팡 플레이 영상 플레이어를 감지하는 선택자 목록
@@ -45,7 +46,7 @@ export function findElement(selectors: string[]): Element | null {
   for (const selector of selectors) {
     const element = document.querySelector(selector);
     if (element) {
-      console.log(`Play LearnEng: 요소를 찾았습니다. (${selector})`);
+      logger.log(`Play LearnEng: 요소를 찾았습니다. (${selector})`);
       return element;
     }
   }
@@ -72,13 +73,13 @@ export function findSubtitleContainer(): Element | null {
  */
 export function hideOriginalSubtitles(): void {
   try {
-    console.log('원본 자막 숨김 처리 시작...');
+    logger.log('원본 자막 숨김 처리 시작...');
     
     const subtitleDisplayContainer = findSubtitleContainer();
     if (!subtitleDisplayContainer) {
       console.warn('자막 표시 컨테이너(.vjs-text-track-display 등)를 찾을 수 없습니다.');
     } else {
-      console.log('자막 표시 컨테이너 찾음:', subtitleDisplayContainer);
+      logger.log('자막 표시 컨테이너 찾음:', subtitleDisplayContainer);
     }
     
     let styleElement = document.getElementById('play-learneng-subtitle-hider');
@@ -147,7 +148,7 @@ export function hideOriginalSubtitles(): void {
         });
     }
     
-    console.log('Play LearnEng: 원본 자막 비활성화 스타일 적용됨');
+    logger.log('Play LearnEng: 원본 자막 비활성화 스타일 적용됨');
   } catch (error) {
     console.error('Play LearnEng: 원본 자막 비활성화 중 오류 발생', error);
   }
@@ -175,7 +176,7 @@ export function showOriginalSubtitles(): void {
       subtitleContainer.removeAttribute('data-pleng-original-display');
     }
     
-    console.log('Play LearnEng: 원본 자막 재활성화됨');
+    logger.log('Play LearnEng: 원본 자막 재활성화됨');
   } catch (error) {
     console.error('Play LearnEng: 원본 자막 재활성화 중 오류 발생', error);
   }
@@ -385,7 +386,7 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
   }
 
 
-  console.log(`[Play LearnEng extractVideoInfo] Final Extracted: Title='${title}', Episode='${episodeInfo}', VideoID='${videoId}'`);
+  logger.log(`[Play LearnEng extractVideoInfo] Final Extracted: Title='${title}', Episode='${episodeInfo}', VideoID='${videoId}'`);
   return { title, episodeInfo, videoId };
 }
 
@@ -407,7 +408,7 @@ export function detectPlayerWithRetry(
       const subtitleContainer = findSubtitleContainer();
       
       if (videoElement && subtitleContainer) {
-        console.log('Play LearnEng: 플레이어와 자막 컨테이너를 감지했습니다.');
+        logger.log('Play LearnEng: 플레이어와 자막 컨테이너를 감지했습니다.');
         resolve({ videoElement, subtitleContainer });
         return;
       }
@@ -419,7 +420,7 @@ export function detectPlayerWithRetry(
         return;
       }
       
-      console.log(`Play LearnEng: 플레이어 감지 시도 중... (${attempts}/${maxAttempts})`);
+      logger.log(`Play LearnEng: 플레이어 감지 시도 중... (${attempts}/${maxAttempts})`);
       setTimeout(attemptDetection, intervalMs);
     };
     
@@ -438,7 +439,7 @@ export function watchPageChanges(callback: () => void): () => void {
   const observer = new MutationObserver(() => {
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
-      console.log('Play LearnEng: 페이지 변경 감지');
+      logger.log('Play LearnEng: 페이지 변경 감지');
       callback();
     }
   });

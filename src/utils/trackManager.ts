@@ -1,29 +1,30 @@
 /**
  * 텍스트 트랙(자막) 관리 유틸리티
  */
+import { logger } from './logger';
 
 /**
  * 비디오에 연결된 모든 텍스트 트랙 활성화 시도
  */
 export function activateAllTextTracks(videoElement: HTMLVideoElement): void {
   if (!videoElement || !videoElement.textTracks) {
-    console.log('유효한 비디오 요소나 텍스트 트랙이 없습니다.');
+    logger.log('유효한 비디오 요소나 텍스트 트랙이 없습니다.');
     return;
   }
   
-  console.log(`비디오 텍스트 트랙 활성화 시도. 총 ${videoElement.textTracks.length}개의 트랙 확인 중...`);
+  logger.log(`비디오 텍스트 트랙 활성화 시도. 총 ${videoElement.textTracks.length}개의 트랙 확인 중...`);
   
   // 모든 텍스트 트랙 정보 로깅
   for (let i = 0; i < videoElement.textTracks.length; i++) {
     const track = videoElement.textTracks[i];
-    console.log(`트랙 ${i}: ${track.label || '라벨 없음'} (${track.language || '언어 없음'}) - ${track.kind}, mode=${track.mode}`);
+    logger.log(`트랙 ${i}: ${track.label || '라벨 없음'} (${track.language || '언어 없음'}) - ${track.kind}, mode=${track.mode}`);
     
     // 자막 트랙인 경우에만 활성화
     if (track.kind === 'subtitles' || track.kind === 'captions') {
       try {
         // 트랙을 표시 모드로 설정
         track.mode = 'showing';
-        console.log(`트랙 ${i} (${track.language || '언어 없음'}) 활성화 성공`);
+        logger.log(`트랙 ${i} (${track.language || '언어 없음'}) 활성화 성공`);
       } catch(e) {
         console.error(`트랙 ${i} 활성화 실패:`, e);
       }
@@ -32,16 +33,16 @@ export function activateAllTextTracks(videoElement: HTMLVideoElement): void {
   
   // 5초 후에 활성화된 트랙 다시 확인
   setTimeout(() => {
-    console.log('=== 트랙 활성화 상태 확인 ===');
+    logger.log('=== 트랙 활성화 상태 확인 ===');
     for (let i = 0; i < videoElement.textTracks.length; i++) {
       const track = videoElement.textTracks[i];
-      console.log(`트랙 ${i}: ${track.label || '라벨 없음'} - mode=${track.mode}, activeCues=${track.activeCues?.length || 0}`);
+      logger.log(`트랙 ${i}: ${track.label || '라벨 없음'} - mode=${track.mode}, activeCues=${track.activeCues?.length || 0}`);
       
       // 활성화된 cue가 있다면 내용 확인
       if (track.activeCues && track.activeCues.length > 0) {
         for (let j = 0; j < track.activeCues.length; j++) {
           const cue = track.activeCues[j] as VTTCue;
-          console.log(`활성 Cue ${j}:`, cue.text);
+          logger.log(`활성 Cue ${j}:`, cue.text);
         }
       }
     }
@@ -53,11 +54,11 @@ export function activateAllTextTracks(videoElement: HTMLVideoElement): void {
  */
 export function setSubtitleLanguage(videoElement: HTMLVideoElement, language: string): void {
   if (!videoElement || !videoElement.textTracks) {
-    console.log('유효한 비디오 요소나 텍스트 트랙이 없습니다.');
+    logger.log('유효한 비디오 요소나 텍스트 트랙이 없습니다.');
     return;
   }
   
-  console.log(`${language} 언어 자막 활성화 시도 중...`);
+  logger.log(`${language} 언어 자막 활성화 시도 중...`);
   let foundMatchingTrack = false;
   
   // 모든 트랙을 검사하고 지정된 언어와 일치하는 트랙만 활성화
@@ -71,11 +72,11 @@ export function setSubtitleLanguage(videoElement: HTMLVideoElement, language: st
       track.label?.toLowerCase().includes(language);
     
     if (isTargetLanguage && (track.kind === 'subtitles' || track.kind === 'captions')) {
-      console.log(`${language} 언어 트랙 발견:`, track.label);
+      logger.log(`${language} 언어 트랙 발견:`, track.label);
       try {
         track.mode = 'showing';
         foundMatchingTrack = true;
-        console.log(`${language} 언어 트랙 활성화 성공`);
+        logger.log(`${language} 언어 트랙 활성화 성공`);
       } catch (e) {
         console.error(`${language} 언어 트랙 활성화 실패:`, e);
       }
@@ -86,7 +87,7 @@ export function setSubtitleLanguage(videoElement: HTMLVideoElement, language: st
   }
   
   if (!foundMatchingTrack) {
-    console.log(`${language} 언어에 맞는 자막 트랙을 찾을 수 없습니다.`);
+    logger.log(`${language} 언어에 맞는 자막 트랙을 찾을 수 없습니다.`);
   }
 }
 

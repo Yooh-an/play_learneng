@@ -1,19 +1,20 @@
 /**
  * 쿠팡 플레이 DOM 구조 분석 및 디버깅을 위한 유틸리티
  */
+import { logger } from './logger';
 
 /**
  * 쿠팡 플레이 영상 페이지의 DOM 구조를 분석하여 자막 관련 요소를 찾습니다.
  */
 export function analyzeVideoPlayerDOM() {
-  console.log('==== 쿠팡 플레이 DOM 구조 분석 시작 ====');
+  logger.log('==== 쿠팡 플레이 DOM 구조 분석 시작 ====');
   
   // 1. 비디오 요소 분석
   const videoElements = document.querySelectorAll('video');
-  console.log(`비디오 요소 수: ${videoElements.length}`);
+  logger.log(`비디오 요소 수: ${videoElements.length}`);
   
   videoElements.forEach((video, index) => {
-    console.log(`비디오 요소 ${index + 1}:`, {
+    logger.log(`비디오 요소 ${index + 1}:`, {
       id: video.id,
       className: video.className,
       src: video.src,
@@ -39,10 +40,10 @@ export function analyzeVideoPlayerDOM() {
     ...document.querySelectorAll('[aria-live="polite"]')
   ];
   
-  console.log(`잠재적 자막 컨테이너 수: ${possibleSubtitleContainers.length}`);
+  logger.log(`잠재적 자막 컨테이너 수: ${possibleSubtitleContainers.length}`);
   
   possibleSubtitleContainers.forEach((container, index) => {
-    console.log(`자막 컨테이너 후보 ${index + 1}:`, {
+    logger.log(`자막 컨테이너 후보 ${index + 1}:`, {
       tagName: container.tagName,
       id: container.id,
       className: container.className,
@@ -55,7 +56,7 @@ export function analyzeVideoPlayerDOM() {
     // 자막 텍스트 요소로 보이는 자식 요소들 분석
     Array.from(container.children).forEach((child, childIndex) => {
       if (child.textContent?.trim()) {
-        console.log(`  - 자식 요소 ${childIndex + 1}:`, {
+        logger.log(`  - 자식 요소 ${childIndex + 1}:`, {
           tagName: child.tagName,
           className: child.className,
           textContent: child.textContent?.trim(),
@@ -65,7 +66,7 @@ export function analyzeVideoPlayerDOM() {
   });
   
   // 3. DOM 변화 감지 설정
-  console.log('DOM 변화 감지 설정 중...');
+  logger.log('DOM 변화 감지 설정 중...');
   
   // 자막으로 추정되는 요소를 클릭하면 해당 요소의 정보를 콘솔에 출력하는 이벤트 리스너
   document.body.addEventListener('click', (e) => {
@@ -73,7 +74,7 @@ export function analyzeVideoPlayerDOM() {
     
     // 클릭한 요소가 텍스트를 포함하는 경우
     if (target && target.textContent?.trim() && !target.querySelector('input, button, a')) {
-      console.log('클릭한 요소 정보:', {
+      logger.log('클릭한 요소 정보:', {
         tagName: target.tagName,
         id: target.id,
         className: target.className,
@@ -85,7 +86,7 @@ export function analyzeVideoPlayerDOM() {
     }
   }, true);
   
-  console.log('==== 쿠팡 플레이 DOM 구조 분석 완료 ====');
+  logger.log('==== 쿠팡 플레이 DOM 구조 분석 완료 ====');
   return '분석이 완료되었습니다. 개발자 도구 콘솔을 확인해주세요.';
 }
 

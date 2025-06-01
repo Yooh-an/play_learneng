@@ -479,7 +479,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (chrome.runtime.lastError) {
                 console.error('Error saving VTT to local storage:', chrome.runtime.lastError);
             } else {
-                console.log('VTT content saved to local storage for popup.');
+                logger.log('VTT content saved to local storage for popup.');
             }
         });
         sendResponse({status: 'VTT processed by background'});
@@ -491,7 +491,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CONTENT_SCRIPT_READY') {
     if (sender.tab && sender.tab.id) {
       contentScriptReadyTabs.add(sender.tab.id);
-      console.log(`[Background] Content script ready for tab ${sender.tab.id}`);
+      logger.log(`[Background] Content script ready for tab ${sender.tab.id}`);
       // Process any pending messages for this tab
       processPendingVttMessages(sender.tab.id); 
       sendResponse({ status: 'acknowledged' });
@@ -534,7 +534,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   // 현재 비디오 시간 제공 (콘텐츠 스크립트가 응답하지 않은 경우를 위한 백업 핸들러)
   else if (message.type === 'LE_GET_CURRENT_TIME') {
-    console.log('[Background] LE_GET_CURRENT_TIME request received from:', sender.tab?.id);
+    logger.log('[Background] LE_GET_CURRENT_TIME request received from:', sender.tab?.id);
     
     if (sender.tab?.id) {
       // 콘텐츠 스크립트에게 시간을 요청
@@ -545,7 +545,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // 응답이 없을 경우 기본값 전송
             sendResponse({ currentTime: Math.floor(Date.now() / 1000) });
           } else {
-            console.log('[Background] Forwarding time from content script:', response);
+            logger.log('[Background] Forwarding time from content script:', response);
             sendResponse(response);
           }
         }

@@ -110,7 +110,7 @@ async function initialize() {
         }
         sendResponse({ success: true });
       } else if (message.type === 'JUMP_TO_TIME') {
-        console.log(`[Content Script] JUMP_TO_TIME message received:`, message.timestamp);
+        logger.log(`[Content Script] JUMP_TO_TIME message received:`, message.timestamp);
         const videoElement = document.querySelector('video');
         if (videoElement && typeof message.timestamp === 'number') {
           videoElement.currentTime = message.timestamp;
@@ -132,7 +132,7 @@ async function initialize() {
         return true; // Required for asynchronous sendResponse
       } else if (message.type === 'SETTINGS_UPDATED') {
         // Handle settings update if needed in content script directly
-        console.log('Content script received settings update:', message.settings);
+        logger.log('Content script received settings update:', message.settings);
         // You might want to update a local copy of settings or trigger a re-render of DualSubtitles
         // if it doesn't pick up changes from chrome.storage.onChanged itself.
       }
@@ -182,7 +182,7 @@ function mountUserInterface(
         />
       </React.StrictMode>
     );
-    console.log('Play LearnEng: UI 컴포넌트가 성공적으로 마운트되었습니다.');
+    logger.log('Play LearnEng: UI 컴포넌트가 성공적으로 마운트되었습니다.');
     
     // 자막 컨테이너는 PlayerController에서만 생성하도록 변경 (깜빡임 문제 해결)
     // setupDualSubtitleContainer();
@@ -227,7 +227,7 @@ function setupDualSubtitleContainer() {
     `;
     
     videoContainer.appendChild(subtitleContainer);
-    console.log('이중 자막 컨테이너 설정 완료:', subtitleContainer);
+    logger.log('이중 자막 컨테이너 설정 완료:', subtitleContainer);
     return subtitleContainer;
   }
   
@@ -250,7 +250,7 @@ function setupPageChangeDetection() {
     }
     
     cleanup = watchPageChanges(() => {
-      console.log('Play LearnEng: 페이지 변경 감지, 재초기화합니다.');
+      logger.log('Play LearnEng: 페이지 변경 감지, 재초기화합니다.');
       setTimeout(initialize, 1000); // 페이지 로딩을 위해 약간의 지연
     });
   } catch (error) {
@@ -323,7 +323,7 @@ try {
       const { findSubtitleContainer } = await import('../utils/playerDetector');
       const { findActiveSubtitles, extractSubtitleText } = await import('../utils/subtitleExtractor');
       
-      console.log('자막 컨테이너 검색 중...');
+      logger.log('자막 컨테이너 검색 중...');
       const container = findSubtitleContainer();
       
       if (!container) {
@@ -331,13 +331,13 @@ try {
         return null;
       }
       
-      console.log('자막 컨테이너:', container);
+      logger.log('자막 컨테이너:', container);
       const subtitleElements = findActiveSubtitles(container);
-      console.log(`${subtitleElements.length}개의 자막 요소를 찾았습니다:`);
+      logger.log(`${subtitleElements.length}개의 자막 요소를 찾았습니다:`);
       
       subtitleElements.forEach((el, index) => {
         const text = extractSubtitleText(el);
-        console.log(`자막 ${index + 1}: "${text}"`);
+        logger.log(`자막 ${index + 1}: "${text}"`);
       });
       
       return { container, elements: subtitleElements };
@@ -375,7 +375,7 @@ try {
   }
 };
 
-console.log('Play LearnEng 디버깅 명령이 등록되었습니다. window.playLearnEngDebug로 접근하세요.');
+logger.log('Play LearnEng 디버깅 명령이 등록되었습니다. window.playLearnEngDebug로 접근하세요.');
 
 // 확장 프로그램 정리 함수
 function cleanupExtension() {
@@ -419,13 +419,13 @@ function cleanupExtension() {
       if (chrome.runtime && chrome.runtime.onMessage) {
         // 이 시점에서는 리스너 참조가 없어 직접 제거는 불가능하지만,
         // 확장이 다시 로드되면 모든 리스너가 자동으로 제거됨
-        console.log('메시지 리스너는 확장 재로드 시 자동으로 제거됩니다.');
+        logger.log('메시지 리스너는 확장 재로드 시 자동으로 제거됩니다.');
       }
     } catch (error) {
-      console.log('메시지 리스너 정리 중 오류 발생 (정상):', error.message);
+      logger.log('메시지 리스너 정리 중 오류 발생 (정상):', error.message);
     }
     
-    console.log('Play LearnEng: 확장 프로그램 자원이 정리되었습니다.');
+    logger.log('Play LearnEng: 확장 프로그램 자원이 정리되었습니다.');
   } catch (error) {
     console.error('확장 프로그램 정리 중 오류:', error);
   }
@@ -462,10 +462,10 @@ document.addEventListener('click', (e) => {
         return;
       }
       
-      console.log('자막 요소 클릭됨:', target.textContent);
+      logger.log('자막 요소 클릭됨:', target.textContent);
       
       // 클릭된 요소 정보
-      console.log('클릭한 요소 정보:', {
+      logger.log('클릭한 요소 정보:', {
         tagName: target.tagName,
         id: target.id,
         className: target.className,
@@ -500,7 +500,7 @@ document.addEventListener('click', (e) => {
       const koreanText = isKorean ? subtitleText : pairSubtitleText;
       const englishText = isEnglish ? subtitleText : pairSubtitleText;
       
-      console.log('감지된 자막:', { koreanText, englishText });
+      logger.log('감지된 자막:', { koreanText, englishText });
       
       if (!koreanText && !englishText) {
         console.warn('저장할 자막 텍스트를 찾을 수 없습니다.');
@@ -544,7 +544,7 @@ function saveSubtitleToStorage(subtitle: { primaryText: string; secondaryText: s
       savedAt: new Date().toISOString()
     };
     
-    console.log('자막을 저장소에 저장:', reviewSubtitle);
+    logger.log('자막을 저장소에 저장:', reviewSubtitle);
     
     // 로컬 스토리지에 먼저 저장 (백업)
     try {
@@ -606,7 +606,7 @@ function saveSubtitleToStorage(subtitle: { primaryText: string; secondaryText: s
               showFeedback('저장 실패. 새로고침 후 다시 시도해보세요', false);
             }
           } else {
-            console.log('자막이 성공적으로 저장되었습니다');
+            logger.log('자막이 성공적으로 저장되었습니다');
             
             // 한글 텍스트 우선 표시
             const displayText = subtitle.primaryText || subtitle.secondaryText;

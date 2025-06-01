@@ -1,4 +1,5 @@
 import useSubtitleStore from '../store/subtitleStore';
+import { logger } from './logger';
 
 /**
  * 자막 텍스트 추출 및 처리를 위한 유틸리티
@@ -52,7 +53,7 @@ export function extractSubtitleText(subtitleElement: Element): { text: string; l
   // 컨트롤 텍스트 필터링
   const controlTexts = ['Play Video', '재생', '일시정지', '정지', '일시 중지'];
   if (controlTexts.includes(rawText)) {
-    console.log('컨트롤 텍스트 감지되어 무시:', rawText);
+    logger.log('컨트롤 텍스트 감지되어 무시:', rawText);
     return null;
   }
   
@@ -113,7 +114,7 @@ export function extractSubtitleText(subtitleElement: Element): { text: string; l
   if (!result) return null;
   
   const language = detectLanguage(result);
-  console.log('자막 추출 결과:', { text: result, language });
+  logger.log('자막 추출 결과:', { text: result, language });
   
   return {
     text: result,
@@ -164,7 +165,7 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
     // 모든 트랙 순회하면서 정보 출력
     for (let i = 0; i < videoElement.textTracks.length; i++) {
       const track = videoElement.textTracks[i];
-      console.log(`트랙 ${i}:`, {
+      logger.log(`트랙 ${i}:`, {
         kind: track.kind,
         language: track.language,
         label: track.label,
@@ -178,7 +179,7 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
           
           track.mode = 'showing';
         } catch (e) {
-          console.error('트랙 활성화 실패:', e);
+          logger.error('트랙 활성화 실패:', e);
         }
       }
       
@@ -191,7 +192,7 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
               cue.text !== 'Play Video' && 
               cue.text !== '재생' && 
               cue.text !== '일시정지') {
-            console.log(`활성 자막 큐 ${j}:`, cue.text);
+            logger.log(`활성 자막 큐 ${j}:`, cue.text);
             
             // DOM에 임시 요소 생성하여 활성 자막 반환
             const tempElement = document.createElement('div');
@@ -383,7 +384,7 @@ function createDualSubtitleContainer(): HTMLElement {
     document.body.appendChild(container);
   }
   
-  console.log('✅ 이중 자막 컨테이너 생성 완료:', container);
+  logger.log('✅ 이중 자막 컨테이너 생성 완료:', container);
   return container;
 }
 
@@ -401,7 +402,7 @@ function removeExistingCustomSubtitles(): void {
   const customSubtitles = document.querySelectorAll('.play-learneng-subtitle-text');
   customSubtitles.forEach(el => el.remove());
   
-  console.log('기존 커스텀 자막 요소 제거 완료');
+  logger.log('기존 커스텀 자막 요소 제거 완료');
 }
 
 /**
@@ -458,14 +459,13 @@ function tryForceShowSubtitle(container: Element, language: 'ko' | 'en'): void {
     
     return;
   }
-  
-  // 전체적인 쿠팡플레이 구조 분석
+   // 전체적인 쿠팡플레이 구조 분석
   analyzeSubtitleInfrastructure();
   
   // 1단계: 숨겨진 자막 요소 찾기
   const hiddenElements = Array.from(container.querySelectorAll(`.vjs-text-track-cue-${language}, [class*="vjs-text-track-cue-${language}"]`));
-  console.log(`숨겨진 ${language} 자막 요소 수:`, hiddenElements.length);
-  
+  logger.log(`숨겨진 ${language} 자막 요소 수:`, hiddenElements.length);
+
   // 2단계: video.js 플레이어에서 텍스트 트랙 조작 시도
   if (videoElement) {
     
@@ -567,7 +567,7 @@ function tryForceShowSubtitle(container: Element, language: 'ko' | 'en'): void {
   }
   
   // 5단계: 쿠팡플레이 UI 버튼 조작 시도 (즉시 실행)
-  console.log('즉시 UI 버튼 조작 시도...');
+  
   tryToggleSubtitleButton(language);
 }
 
@@ -585,7 +585,7 @@ function findVideoJSPlayer(videoElement: HTMLVideoElement): any {
     try {
       return (window as any).videojs.getPlayer(videoElement);
     } catch (e) {
-      console.log('videojs.getPlayer 실패:', e);
+      logger.log('videojs.getPlayer 실패:', e);
     }
   }
   
@@ -613,13 +613,13 @@ function findVideoJSPlayer(videoElement: HTMLVideoElement): any {
  * 쿠팡플레이 자막 인프라 구조 분석
  */
 function analyzeSubtitleInfrastructure(): void {
-  console.log('=== 쿠팡플레이 자막 인프라 분석 ===');
+  logger.log('=== 쿠팡플레이 자막 인프라 분석 ===');
   
   // 1. 비디오 요소 분석
   const videos = Array.from(document.querySelectorAll('video'));
-  console.log('비디오 요소 수:', videos.length);
+  logger.log('비디오 요소 수:', videos.length);
   videos.forEach((video, i) => {
-    console.log(`비디오 ${i}:`, {
+    logger.log(`비디오 ${i}:`, {
       src: video.src,
       currentSrc: video.currentSrc,
       textTracks: video.textTracks.length,
@@ -646,9 +646,9 @@ function analyzeSubtitleInfrastructure(): void {
     });
     
     if (subtitleButtons.length > 0) {
-      console.log(`${selector} 자막 버튼:`, subtitleButtons.length);
+      logger.log(`${selector} 자막 버튼:`, subtitleButtons.length);
       subtitleButtons.forEach((btn, i) => {
-        console.log(`  버튼 ${i}:`, {
+        logger.log(`  버튼 ${i}:`, {
           text: btn.textContent?.trim(),
           className: btn.className,
           ariaLabel: btn.getAttribute('aria-label')
@@ -662,28 +662,28 @@ function analyzeSubtitleInfrastructure(): void {
   for (const selector of menuSelectors) {
     const menus = document.querySelectorAll(selector);
     if (menus.length > 0) {
-      console.log(`${selector} 메뉴 요소:`, menus.length);
+      logger.log(`${selector} 메뉴 요소:`, menus.length);
     }
   }
   
-  console.log('=== 분석 완료 ===');
+  logger.log('=== 분석 완료 ===');
 }
 
 /**
  * 쿠팡플레이 자막 설정 버튼을 조작하여 다른 언어 활성화 시도
  */
 function tryToggleSubtitleButton(language: 'ko' | 'en'): void {
-  console.log(`쿠팡플레이 UI를 통한 ${language} 자막 활성화 시도...`);
+  logger.log(`쿠팡플레이 UI를 통한 ${language} 자막 활성화 시도...`);
   
   // 1단계: video.js 메뉴 아이템에서 직접 언어 옵션 찾기 (분석에서 발견됨)
   const languageMenuItems = Array.from(document.querySelectorAll('.vjs-menu-item.vjs-subtitles-menu-item'));
-  console.log('video.js 자막 메뉴 아이템:', languageMenuItems.length);
+  logger.log('video.js 자막 메뉴 아이템:', languageMenuItems.length);
   
   for (const item of languageMenuItems) {
     const text = item.textContent?.trim().toLowerCase() || '';
     const className = item.className || '';
     
-    console.log('자막 메뉴 아이템:', {
+    logger.log('자막 메뉴 아이템:', {
       text: item.textContent?.trim(),
       className: className,
       isSelected: className.includes('vjs-selected')
@@ -694,7 +694,7 @@ function tryToggleSubtitleButton(language: 'ko' | 'en'): void {
                             (language === 'ko' && text === 'ko, selected');
     
     if (isTargetLanguage && !className.includes('vjs-selected')) {
-      console.log(`${language} 언어 메뉴 아이템 클릭:`, item);
+      logger.log(`${language} 언어 메뉴 아이템 클릭:`, item);
       
       // 강력한 클릭 이벤트 시뮬레이션
       const element = item as HTMLElement;
@@ -736,12 +736,12 @@ function tryToggleSubtitleButton(language: 'ko' | 'en'): void {
           }
         });
         
-        console.log('메뉴 아이템 상태 강제 변경 완료');
+        logger.log('메뉴 아이템 상태 강제 변경 완료');
       }, 100);
       
       // 5. 클릭 후 DOM 변화 확인 (더 긴 대기 시간)
       setTimeout(() => {
-        console.log(`${language} 자막 활성화 후 상태 확인...`);
+        logger.log(`${language} 자막 활성화 후 상태 확인...`);
         checkSubtitleActivation(language);
       }, 2000);
       
@@ -751,10 +751,10 @@ function tryToggleSubtitleButton(language: 'ko' | 'en'): void {
   
   // 2단계: video.js 자막 버튼을 통한 메뉴 열기
   const vjsSubtitleButtons = Array.from(document.querySelectorAll('.vjs-subs-caps-button'));
-  console.log('video.js 자막 버튼:', vjsSubtitleButtons.length);
+  logger.log('video.js 자막 버튼:', vjsSubtitleButtons.length);
   
   for (const button of vjsSubtitleButtons) {
-    console.log('video.js 자막 버튼 클릭:', button);
+    logger.log('video.js 자막 버튼 클릭:', button);
     (button as HTMLElement).click();
     
     // 메뉴가 열린 후 언어 옵션 찾기
@@ -767,7 +767,7 @@ function tryToggleSubtitleButton(language: 'ko' | 'en'): void {
                                 (language === 'ko' && text.includes('ko'));
         
         if (isTargetLanguage) {
-          console.log(`메뉴에서 ${language} 언어 옵션 클릭:`, item);
+          logger.log(`메뉴에서 ${language} 언어 옵션 클릭:`, item);
           (item as HTMLElement).click();
           
           setTimeout(() => checkSubtitleActivation(language), 1000);
@@ -781,10 +781,10 @@ function tryToggleSubtitleButton(language: 'ko' | 'en'): void {
   
   // 3단계: 쿠팡플레이 자체 자막 버튼 시도
   const coupangSubtitleButtons = Array.from(document.querySelectorAll('.AudioSubtitle_subtitle___Mql9'));
-  console.log('쿠팡플레이 자막 버튼:', coupangSubtitleButtons.length);
+  logger.log('쿠팡플레이 자막 버튼:', coupangSubtitleButtons.length);
   
   for (const button of coupangSubtitleButtons) {
-    console.log('쿠팡플레이 자막 버튼 클릭:', button);
+    logger.log('쿠팡플레이 자막 버튼 클릭:', button);
     (button as HTMLElement).click();
     
     // 언어 옵션 찾기
@@ -796,7 +796,7 @@ function tryToggleSubtitleButton(language: 'ko' | 'en'): void {
       
       for (const option of options) {
         if ((option as HTMLElement).click) {
-          console.log(`쿠팡플레이에서 ${language} 옵션 클릭:`, option);
+          logger.log(`쿠팡플레이에서 ${language} 옵션 클릭:`, option);
           (option as HTMLElement).click();
           setTimeout(() => checkSubtitleActivation(language), 1000);
           return;
@@ -812,25 +812,22 @@ function tryToggleSubtitleButton(language: 'ko' | 'en'): void {
  * 자막 활성화 후 상태 확인
  */
 function checkSubtitleActivation(language: 'ko' | 'en'): void {
-  console.log(`${language} 자막 활성화 상태 확인 중...`);
+  logger.log(`${language} 자막 활성화 상태 확인 중...`);
   
   const container = document.querySelector('.vjs-text-track-display');
   if (container) {
     const koreanElements = container.querySelectorAll('.vjs-text-track-cue-ko');
     const englishElements = container.querySelectorAll('.vjs-text-track-cue-en');
     
-    console.log('활성화 확인 결과:', {
+    logger.log('활성화 확인 결과:', {
       korean: koreanElements.length,
       english: englishElements.length,
       total: koreanElements.length + englishElements.length
     });
     
     if (language === 'en' && englishElements.length > 0) {
-      console.log('✅ 영어 자막 활성화 성공!');
     } else if (language === 'ko' && koreanElements.length > 0) {
-      console.log('✅ 한국어 자막 활성화 성공!');
     } else {
-      console.log('❌ 자막 활성화 실패 - 다른 방법 시도 필요');
       
       // 추가 시도: DOM 이벤트 직접 발생
       setTimeout(() => {
@@ -844,7 +841,6 @@ function checkSubtitleActivation(language: 'ko' | 'en'): void {
  * 자막 변경 이벤트 직접 발생
  */
 function triggerSubtitleChangeEvent(language: 'ko' | 'en'): void {
-  console.log(`${language} 자막 변경 이벤트 직접 발생 시도...`);
   
   const video = document.querySelector('video') as HTMLVideoElement;
   if (video) {
@@ -856,7 +852,6 @@ function triggerSubtitleChangeEvent(language: 'ko' | 'en'): void {
     const player = (video as any).player;
     if (player && player.trigger) {
       player.trigger('texttrackchange');
-      console.log('video.js texttrackchange 이벤트 발생됨');
     }
   }
 }
@@ -865,13 +860,11 @@ function triggerSubtitleChangeEvent(language: 'ko' | 'en'): void {
  * 쿠팡플레이에서 ko와 en 자막 파일을 모두 강제 로드
  */
 function createVirtualEnglishSubtitle(container: Element, koreanText: string): Element | null {
-  console.log('🚀 ko/en 자막 파일 동시 로드 시도 중...');
   
   // 현재 로드된 자막 URL 탐지
   const currentSubtitleUrls = detectCurrentSubtitleUrls();
   
   if (currentSubtitleUrls.length > 0) {
-    console.log('감지된 자막 URL:', currentSubtitleUrls);
     
     // 각 자막 URL에 대해 ko와 en 버전 모두 로드 시도
     currentSubtitleUrls.forEach(url => {
@@ -942,7 +935,6 @@ function detectCurrentSubtitleUrls(): string[] {
   const detectedUrls = getDetectedSubtitleUrls();
   urls.push(...detectedUrls);
   
-  console.log('탐지된 자막 URL들:', urls);
   return [...new Set(urls)]; // 중복 제거
 }
 
@@ -976,7 +968,6 @@ function getDetectedSubtitleUrls(): string[] {
     });
   }
   
-  console.log('모든 감지된 자막 URL들:', urls);
   return [...new Set(urls)]; // 중복 제거
 }
 
@@ -984,13 +975,11 @@ function getDetectedSubtitleUrls(): string[] {
  * ko와 en 자막 파일을 모두 로드
  */
 function loadBothLanguageSubtitles(baseUrl: string, container: Element): void {
-  console.log('📥 자막 파일 동시 로드:', baseUrl);
   
   // URL 패턴 분석 및 언어별 URL 생성
   const urls = generateLanguageUrls(baseUrl);
   
   urls.forEach(({ url, language }) => {
-    console.log(`${language} 자막 로드 시도:`, url);
     
     fetch(url)
       .then(response => {
@@ -1000,14 +989,12 @@ function loadBothLanguageSubtitles(baseUrl: string, container: Element): void {
         throw new Error(`Failed to load ${language} subtitle: ${response.status}`);
       })
       .then(vttContent => {
-        console.log(`✅ ${language} 자막 로드 성공!`);
-        console.log(`${language} VTT 내용 (첫 200자):`, vttContent.substring(0, 200));
         
         // VTT 내용을 파싱하여 DOM에 자막 요소 생성
         parseAndCreateSubtitleElements(vttContent, language, container);
       })
       .catch(error => {
-        console.log(`❌ ${language} 자막 로드 실패:`, error.message);
+
       });
   });
 }
@@ -1048,18 +1035,18 @@ function generateLanguageUrls(baseUrl: string): Array<{ url: string; language: '
  */
 function parseAndCreateSubtitleElements(vttContent: string, language: 'ko' | 'en', container: Element): void {
   // 깜빡임 문제 해결을 위해 자막 렌더링 비활성화 - PlayerController에서만 처리
-  console.log(`${language} VTT 파싱 비활성화됨 (깜빡임 문제 해결)`);
+
   return;
   
   // VTT 파싱 - 자막 시간과 텍스트 추출
   const subtitleData = parseVttContent(vttContent);
   
   if (subtitleData.length === 0) {
-    console.log(`파싱된 ${language} 자막 데이터 없음`);
+
     return;
   }
   
-  console.log(`파싱된 ${language} 자막 데이터:`, subtitleData.length, '항목');
+
   
   // 현재 시간에 가장 가까운 자막 찾기
   const videoElement = document.querySelector('video') as HTMLVideoElement;
@@ -1068,7 +1055,7 @@ function parseAndCreateSubtitleElements(vttContent: string, language: 'ko' | 'en
   const currentSubtitle = findClosestSubtitle(subtitleData, currentTime);
   
   if (currentSubtitle) {
-    console.log(`현재(${currentTime}초) ${language} 자막:`, currentSubtitle.text);
+    
     
     // 커스텀 자막 컨테이너 찾거나 생성
     let dualSubtitleContainer = document.getElementById('play-learneng-subtitle-container');
@@ -1077,14 +1064,16 @@ function parseAndCreateSubtitleElements(vttContent: string, language: 'ko' | 'en
     }
     
     // 해당 언어 자막 요소 업데이트
-    updateDualSubtitle(dualSubtitleContainer, currentSubtitle.text, language);
+    if (dualSubtitleContainer) { // null 체크 추가
+      updateDualSubtitle(dualSubtitleContainer, currentSubtitle.text, language);
+    }
     
     // 자막 변경 시 비디오 시간 이벤트 리스너 설정 (아직 없는 경우)
     if (!videoElement.hasAttribute('subtitle-tracking')) {
       setupSubtitleTimeTracking(videoElement, subtitleData, language);
     }
   } else {
-    console.log(`현재 시간에 맞는 ${language} 자막을 찾을 수 없음`);
+    
   }
 }
 
@@ -1098,7 +1087,7 @@ function updateDualSubtitle(container: HTMLElement, text: string, language: 'ko'
   if (subtitleElement) {
     // 요소가 이미 존재하는 경우 텍스트만 업데이트
     subtitleElement.textContent = text;
-    console.log(`이중 자막 업데이트 (${language}):`, text);
+    
   } else {
     // 요소가 없는 경우 새로 생성
     const newElement = document.createElement('div');
@@ -1135,7 +1124,7 @@ function updateDualSubtitle(container: HTMLElement, text: string, language: 'ko'
     }
     
     container.appendChild(newElement);
-    console.log(`새로운 ${language} 자막 요소 생성 및 추가:`, text);
+    
   }
 }
 
@@ -1143,7 +1132,7 @@ function updateDualSubtitle(container: HTMLElement, text: string, language: 'ko'
  * 비디오 시간에 따라 자막 동기화 설정
  */
 function setupSubtitleTimeTracking(videoElement: HTMLVideoElement, subtitleData: any[], language: 'ko' | 'en'): void {
-  console.log(`${language} 자막 동기화 설정 중...`);
+  
   
   // 기존의 타이머가 있다면 정지
   if ((videoElement as any).__subtitleSyncTimer) {
@@ -1160,7 +1149,7 @@ function setupSubtitleTimeTracking(videoElement: HTMLVideoElement, subtitleData:
     if (currentSubtitle) {
       // 자막 텍스트 업데이트
       const container = document.getElementById('play-learneng-subtitle-container');
-      if (container) {
+      if (container) { // null 체크 추가
         updateDualSubtitle(container as HTMLElement, currentSubtitle.text, language);
       }
     }

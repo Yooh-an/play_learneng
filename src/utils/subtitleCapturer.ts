@@ -1,6 +1,7 @@
 /**
  * 쿠팡 플레이 자막 요청을 가로채고 분석하는 유틸리티
  */
+import { logger } from './logger';
 
 interface VTTCue {
   startTime: number;
@@ -94,7 +95,7 @@ export const extractSubtitleFromDOM = (container: Element, languageCode: string 
  * 모든 네트워크 요청을 모니터링하고 자막 요청을 가로채는 함수
  */
 export function interceptSubtitleRequests() {
-  console.log('쿠팡 플레이 자막 요청 모니터링을 시작합니다...');
+  logger.log('쿠팡 플레이 자막 요청 모니터링을 시작합니다...');
   
   const originalFetch = window.fetch;
   window.fetch = async function(input, init) {
@@ -118,7 +119,7 @@ export function interceptSubtitleRequests() {
         url.includes('track') ||
         url.includes('text-track') ||
         url.includes('text/vtt')) {
-      console.log('자막 요청 감지:', url);
+      logger.log('자막 요청 감지:', url);
       
       try {
         // 원본 요청 실행
@@ -129,13 +130,13 @@ export function interceptSubtitleRequests() {
         
         // 자막 내용 분석
         clonedResponse.text().then(text => {
-          console.log('자막 파일 내용:');
-          console.log(text.substring(0, 500) + (text.length > 500 ? '...' : ''));
+          logger.log('자막 파일 내용:');
+          logger.log(text.substring(0, 500) + (text.length > 500 ? '...' : ''));
           
           try {
             // VTT 파싱
             const cues = parseVTT(text);
-            console.log(`파싱된 자막 큐 ${cues.length}개:`, cues.slice(0, 5));
+            logger.log(`파싱된 자막 큐 ${cues.length}개:`, cues.slice(0, 5));
             
             // 전역 변수에 저장하여 쉽게 액세스할 수 있도록 함
             window.capturedSubtitles = {
@@ -166,7 +167,7 @@ export function interceptSubtitleRequests() {
     return originalFetch.apply(this, [input, init]);
   };
   
-  console.log('쿠팡 플레이 자막 요청 모니터링이 활성화되었습니다.');
+  logger.log('쿠팡 플레이 자막 요청 모니터링이 활성화되었습니다.');
   return '자막 모니터링이 시작되었습니다. 비디오를 재생하면 자막 요청이 감지됩니다.';
 }
 
@@ -193,10 +194,10 @@ export function parseVTT(vttContent: string): VTTCue[] {
     if (!vttContent.trim().startsWith('WEBVTT') && !vttContent.includes('-->')) {
       // 쿠팡플레이 자막은 헤더가 다를 수 있으므로 추가 체크
       if (isCoupangPlayFormat || vttContent.match(/\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}/)) {
-        console.log('특수한 형식의 자막 파일 감지됨 - 쿠팡플레이 형식');
+        logger.log('특수한 형식의 자막 파일 감지됨 - 쿠팡플레이 형식');
       } else {
         console.warn('유효한 WebVTT 형식이 아니거나 자막 시간 형식이 포함되어 있지 않습니다.');
-        console.log('자막 콘텐츠 일부:', vttContent.substring(0, 100));
+        logger.log('자막 콘텐츠 일부:', vttContent.substring(0, 100));
         return cues;
       }
     }
@@ -322,10 +323,10 @@ export function saveCapturedSubtitle(url: string, content: string) {
     };
     
     chrome.storage.local.set({ capturedSubtitle }, () => {
-      console.log('자막 파일이 저장되었습니다:', fileName);
+      logger.log('자막 파일이 저장되었습니다:', fileName);
     });
   } else {
-    console.log('Chrome Storage API를 사용할 수 없어 자막을 저장할 수 없습니다.');
+    logger.log('Chrome Storage API를 사용할 수 없어 자막을 저장할 수 없습니다.');
   }
 }
 
@@ -334,7 +335,7 @@ export function saveCapturedSubtitle(url: string, content: string) {
  * @returns 통신 설정 상태 객체
  */
 export function setupSubtitleComms() {
-  console.log('자막 통신 시스템 초기화...');
+  logger.log('자막 통신 시스템 초기화...');
   
   // 서비스 워커와의 통신 채널 설정
   if (chrome?.runtime?.onMessage) {
@@ -347,7 +348,7 @@ export function setupSubtitleComms() {
       }
     });
     
-    console.log('자막 통신 리스너 등록 완료');
+    logger.log('자막 통신 리스너 등록 완료');
     return { status: 'initialized', communicationChannel: 'chrome.runtime' };
   } 
   
@@ -366,12 +367,12 @@ export async function fetchSubtitleManually(url: string) {
     }
     
     const text = await response.text();
-    console.log('자막 파일 가져오기 성공!');
-    console.log(text.substring(0, 500) + (text.length > 500 ? '...' : ''));
+    logger.log('자막 파일 가져오기 성공!');
+    logger.log(text.substring(0, 500) + (text.length > 500 ? '...' : ''));
     
     // 큐로 파싱
     const cues = parseVTT(text);
-    console.log(`파싱된 자막 큐 ${cues.length}개:`, cues.slice(0, 5));
+    logger.log(`파싱된 자막 큐 ${cues.length}개:`, cues.slice(0, 5));
     
     return {
       url,
