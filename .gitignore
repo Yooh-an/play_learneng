@@ -4,4 +4,4 @@ dist
 .env
 *.log
 node_modules
-todo
+TODO.md
