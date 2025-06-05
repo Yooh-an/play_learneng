@@ -191,11 +191,12 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
   let episodeInfo = '';
   let videoId = '';
   
-  // 0. 쿠팡 플레이어 UI에서 직접 제목 가져오기 (스크린샷에서 보이는 title 클래스)
+  // 0. 쿠팡 플레이어 UI에서 직접 제목과 부제목 가져오기 (스크린샷에서 보이는 title과 subtitle 클래스)
   const titleElement = document.querySelector('.label .title');
   if (titleElement && titleElement.textContent) {
     title = titleElement.textContent.trim();
     logger.log(`[Play LearnEng] Player UI 제목 추출: '${title}'`);
+    
     // 비디오 ID도 함께 추출 시도
     const playerWrapper = titleElement.closest('[id*="player"], [data-content-id], [data-video-id]');
     if (playerWrapper) {
@@ -204,6 +205,13 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
       if (dataContentId) videoId = dataContentId;
       else if (dataVideoId) videoId = dataVideoId;
       else if (playerWrapper.id) videoId = playerWrapper.id;
+    }
+    
+    // 부제목(subtitle) 정보도 확인
+    const subtitleElement = document.querySelector('.label .subtitle');
+    if (subtitleElement && subtitleElement.textContent) {
+      episodeInfo = subtitleElement.textContent.trim();
+      logger.log(`[Play LearnEng] Player UI 에피소드 정보 추출: '${episodeInfo}'`);
     }
   }
 
@@ -271,6 +279,8 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
     const episodeInfoSelectors = [
       '[data-testid="episode-title"]',
       '.episode-info-css-class',
+      '.label .subtitle',
+      '.subtitle', // 쿠팡플레이 부제목 클래스
       // TODO: 쿠팡플레이 실제 에피소드 정보 셀렉터를 여기에 추가하세요.
     ];
     for (const selector of episodeInfoSelectors) {
