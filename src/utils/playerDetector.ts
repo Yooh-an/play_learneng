@@ -190,6 +190,22 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
   let title = '';
   let episodeInfo = '';
   let videoId = '';
+  
+  // 0. 쿠팡 플레이어 UI에서 직접 제목 가져오기 (스크린샷에서 보이는 title 클래스)
+  const titleElement = document.querySelector('.label .title');
+  if (titleElement && titleElement.textContent) {
+    title = titleElement.textContent.trim();
+    logger.log(`[Play LearnEng] Player UI 제목 추출: '${title}'`);
+    // 비디오 ID도 함께 추출 시도
+    const playerWrapper = titleElement.closest('[id*="player"], [data-content-id], [data-video-id]');
+    if (playerWrapper) {
+      const dataContentId = playerWrapper.getAttribute('data-content-id');
+      const dataVideoId = playerWrapper.getAttribute('data-video-id');
+      if (dataContentId) videoId = dataContentId;
+      else if (dataVideoId) videoId = dataVideoId;
+      else if (playerWrapper.id) videoId = playerWrapper.id;
+    }
+  }
 
   // 1. Try JSON-LD first (often the most structured and reliable)
   // 웹페이지에 application/ld+json 타입의 스크립트가 있다면, 이 데이터를 우선적으로 사용합니다.
