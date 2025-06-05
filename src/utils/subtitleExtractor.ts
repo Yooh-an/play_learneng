@@ -287,38 +287,6 @@ export function findActiveSubtitles(subtitleContainer: Element): Element[] {
       foundElements.push(validEnglishElements[0]);
     }
     
-    // 기존 커스텀 자막 요소는 매번 제거하고 다시 생성
-    // removeExistingCustomSubtitles(); // 깜빡임 문제 해결을 위해 비활성화
-    
-    // 이중 자막 컨테이너 준비 (PlayerController에서만 처리하도록 변경)
-    /*
-    let dualSubtitleContainer = document.getElementById('play-learneng-subtitle-container');
-    if (!dualSubtitleContainer) {
-      dualSubtitleContainer = createDualSubtitleContainer();
-    } else {
-      // 기존 컨테이너가 있으면 내용 비우기
-      dualSubtitleContainer.innerHTML = '';
-    }
-    
-    // 한국어 자막 렌더링
-    if (validKoreanElements.length > 0) {
-      renderDualSubtitle(
-        dualSubtitleContainer, 
-        validKoreanElements[0].textContent?.trim() || "", 
-        'ko'
-      );
-    }
-    
-    // 영어 자막 렌더링
-    if (validEnglishElements.length > 0) {
-      renderDualSubtitle(
-        dualSubtitleContainer, 
-        validEnglishElements[0].textContent?.trim() || "", 
-        'en'
-      );
-    }
-    */
-    
     return foundElements;
   }
   
