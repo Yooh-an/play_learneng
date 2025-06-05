@@ -268,12 +268,8 @@ const Popup = () => {
 
   const ReviewTab = () => (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-900'}`}>단어장</h3>
-        <div className={`flex items-center text-xs ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>
-          <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono mr-1">Shift+C</span>
-          <span>자막 저장</span>
-        </div>
       </div>
       {savedSubtitles.length === 0 ? (
         <div className={`text-center py-10 ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>
@@ -282,7 +278,7 @@ const Popup = () => {
           <p className="text-sm mt-1">영상에서 자막을 클릭하거나 <span className="font-medium">Shift+C</span> 단축키로 단어장에 추가해보세요!</p>
         </div>
       ) : (
-        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+        <div className="space-y-3 max-h-[270px] overflow-y-auto pr-2 mb-3">
           {savedSubtitles.map((subtitle) => (
             <div key={subtitle.id} className={`${isDarkMode ? 'bg-[#1F1F1F] hover:bg-[#2C2C2C]' : 'bg-white hover:shadow-md'} p-3 rounded-lg shadow transition-shadow`}>
               <div className="flex justify-between items-start">
@@ -302,6 +298,12 @@ const Popup = () => {
           ))}
         </div>
       )}
+      <div className={`flex items-center justify-center h-10 text-xs border-t ${isDarkMode ? 'border-[#374151] text-[#9CA3AF]' : 'border-gray-200 text-gray-500'}`}>
+        <div className="flex items-center gap-2 leading-tight">
+          <span className="bg-gray-200 text-gray-700 px-2 py-[3px] rounded font-mono text-sm">Shift+C</span>
+          <span className="text-sm">자막 저장</span>
+        </div>
+      </div>
     </div>
   );
 
