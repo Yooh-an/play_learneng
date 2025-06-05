@@ -247,9 +247,17 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
           } else if (!episodeInfo && seasonEpisodeStr) {
             episodeInfo = seasonEpisodeStr;
           }
-        }
-        // TODO: JSON-LD 내에 고유 식별자가 있다면 videoId 추출 시도
-        // 예: jsonData.identifier, jsonData.url 또는 jsonData.embedUrl 파싱
+        }      // JSON-LD 내의 고유 식별자에서 videoId 추출 시도
+      if (jsonData.identifier) {
+        videoId = String(jsonData.identifier);
+      } else if (jsonData.url) {
+        const urlObj = new URL(jsonData.url);
+        const idFromPath = urlObj.pathname.split('/').pop();
+        if (idFromPath) videoId = idFromPath;
+      } else if (jsonData.embedUrl) {
+        const urlObj = new URL(jsonData.embedUrl);
+        videoId = urlObj.searchParams.get('id') || urlObj.pathname.split('/').pop() || videoId;
+      }
       }
     } catch (e) {
       console.warn('[Play LearnEng] Error parsing JSON-LD data:', e);
@@ -259,11 +267,12 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
   // 2. Try specific DOM elements (examples, need Coupang Play specific selectors)
   // 쿠팡플레이 DOM 구조를 분석하여 실제 사용되는 셀렉터로 교체해야 합니다.
   if (!title) {
-    // 시리즈/프로그램 제목 선택자 예시
+    // 시리즈/프로그램 제목 선택자
     const seriesTitleSelectors = [
       '[data-testid="program-title"]', // React 앱에서 흔히 사용
-      '.series-title-css-class',      // 예시 CSS 클래스
-      // TODO: 쿠팡플레이 실제 시리즈 제목 셀렉터를 여기에 추가하세요.
+      '.series-title',
+      '.label .title',
+      '.program-title'
     ];
     for (const selector of seriesTitleSelectors) {
       const el = document.querySelector<HTMLElement>(selector);
@@ -275,13 +284,14 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
   }
 
   if (!episodeInfo) {
-    // 에피소드 정보 선택자 예시
+    // 에피소드 정보 선택자
     const episodeInfoSelectors = [
       '[data-testid="episode-title"]',
-      '.episode-info-css-class',
+      '.episode-info',
       '.label .subtitle',
       '.subtitle', // 쿠팡플레이 부제목 클래스
-      // TODO: 쿠팡플레이 실제 에피소드 정보 셀렉터를 여기에 추가하세요.
+      '.episode-title',
+      '.episode-number'
     ];
     for (const selector of episodeInfoSelectors) {
       const el = document.querySelector<HTMLElement>(selector);
@@ -346,15 +356,16 @@ export function extractVideoInfo(): { title: string; episodeInfo: string; videoI
     videoId = urlParams.get('videoId')!;
   } else {
     // 비디오 플레이어 또는 관련 요소의 데이터 속성에서 ID 추출 시도
-    // TODO: 쿠팡플레이의 data-video-id, data-content-id 등 특정 데이터 속성 확인 필요
     const videoElement = document.querySelector('video');
     if (videoElement) {
         const playerWrapper = videoElement.closest('[data-content-id], [data-video-id], [id*="player"]');
         if (playerWrapper) {
-            videoId = playerWrapper.getAttribute('data-content-id') || playerWrapper.getAttribute('data-video-id') || '';
+            videoId = playerWrapper.getAttribute('data-content-id') || 
+                     playerWrapper.getAttribute('data-video-id') || 
+                     (playerWrapper.id && playerWrapper.id.includes('player') ? playerWrapper.id : '') || 
+                     videoId;
         }
     }
-    // TODO: JSON-LD를 통해 videoId를 찾았는지 확인 (고유 식별자 필드가 있는 경우)
   }
 
   // Final fallbacks and adjustments
