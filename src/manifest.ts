@@ -11,7 +11,6 @@ export default defineManifest({
   author: 'Play LearnEng Team',
   homepage_url: 'https://github.com/yourusername/play-learneng',
   icons: {
-    // src 경로 대신 상대 경로 사용
     16: 'icon-16.png',
     32: 'icon-32.png',
     48: 'icon-48.png',
@@ -19,7 +18,6 @@ export default defineManifest({
   },
   action: {
     default_popup: 'src/pages/popup/index.html',
-    // default_icon도 수정
     default_icon: 'icon-32.png',
   },
   background: {
