@@ -10,6 +10,7 @@ interface SavedSubtitle {
   secondaryText: string;
   timestamp: number;
   episodeTitle?: string;
+  savedDate: string; // 'YYYY-MM-DD' 형식의 저장 날짜
 }
 
 interface SubtitleSettings {
@@ -39,10 +40,68 @@ interface SavedSubtitle {
 }
 
 
+// 날짜 관련 유틸리티 함수
+const formatDateForDisplay = (dateString: string): string => {
+  if (!dateString) return '알 수 없음';
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const date = new Date(dateString);
+  date.setHours(0, 0, 0, 0);
+  
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    return '오늘';
+  } else if (diffDays === 1) {
+    return '어제';
+  } else {
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}월 ${day}일`;
+  }
+};
+
+const getCurrentDateString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getDateStringFromDaysAgo = (daysAgo: number): string => {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
+// 최근 7일간의 날짜 배열 생성 ('all'포함)
+const generateLastSevenDays = (): { value: string, label: string }[] => {
+  const dates = [{ value: 'all', label: '전체' }];
+  
+  for (let i = 0; i < 7; i++) {
+    const dateString = getDateStringFromDaysAgo(i);
+    dates.push({
+      value: dateString,
+      label: formatDateForDisplay(dateString)
+    });
+  }
+  
+  return dates;
+};
+
 const Popup = () => {
   const [activeTab, setActiveTab] = useState<TabType>('review');
   const [isPlaying, setIsPlaying] = useState(false); // Represents if Coupang Play video is active
   const [isDarkMode, setIsDarkMode] = useState(false); // Dark theme state
+  const [selectedDate, setSelectedDate] = useState<string>('all'); // 선택된 날짜 필터 ('all' 또는 'YYYY-MM-DD')
   const [settings, setSettings] = useState<SubtitleSettings>({
     enabled: true,
     primaryLanguage: 'ko',
@@ -155,7 +214,15 @@ const Popup = () => {
         setSettings(data.subtitleSettings);
       }
       if (data.savedSubtitles) {
-        setSavedSubtitles(data.savedSubtitles);
+        // 자막 데이터를 로드하면서 오래된 자막 데이터는 자동으로 정리
+        const cleanedSubtitles = cleanupOldSubtitles(data.savedSubtitles);
+        
+        // 정리된 데이터가 원본과 다르면 저장소도 업데이트
+        if (cleanedSubtitles.length !== data.savedSubtitles.length) {
+          chrome.storage.sync.set({ savedSubtitles: cleanedSubtitles });
+        }
+        
+        setSavedSubtitles(cleanedSubtitles);
       }
       if (data.isDarkMode !== undefined) {
         setIsDarkMode(data.isDarkMode);
@@ -232,10 +299,29 @@ const Popup = () => {
     });
   };
 
+  // 오래된 자막 데이터 정리 (7일 이상 지난 데이터 삭제)
+  const cleanupOldSubtitles = (subtitles: SavedSubtitle[]): SavedSubtitle[] => {
+    const cutoffDate = getDateStringFromDaysAgo(7); // 7일 전 날짜
+    
+    return subtitles.filter(sub => {
+      // savedDate가 없는 경우(기존 데이터) 또는 cutoffDate보다 최신인 경우에만 유지
+      return !sub.savedDate || sub.savedDate >= cutoffDate;
+    });
+  };
+  
   const deleteSubtitle = (id: string) => {
     const updatedSubtitles = savedSubtitles.filter(sub => sub.id !== id);
     setSavedSubtitles(updatedSubtitles);
     chrome.storage.sync.set({ savedSubtitles: updatedSubtitles });
+  };
+  
+  // 날짜별 필터링된 자막 목록 얻기
+  const getFilteredSubtitles = (): SavedSubtitle[] => {
+    if (selectedDate === 'all') {
+      return savedSubtitles;
+    }
+    
+    return savedSubtitles.filter(sub => sub.savedDate === selectedDate);
   };
 
   const jumpToTimestamp = (timestamp: number) => {
@@ -266,12 +352,41 @@ const Popup = () => {
     </button>
   );
 
-  const ReviewTab = () => (
+  const ReviewTab = () => {
+    // 최근 7일 날짜 옵션 생성
+    const dateOptions = generateLastSevenDays();
+    
+    // 날짜 선택 변경 핸들러
+    const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      setSelectedDate(e.target.value);
+    };
+    
+    // 선택된 날짜에 따라 필터링된 자막 목록
+    const filteredSubtitles = getFilteredSubtitles();
+    
+    return (
     <div className="p-4">
-      <div className="mb-4">
+      <div className="flex items-center justify-between mb-4">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-900'}`}>단어장</h3>
+        <div className="flex items-center">
+          <select
+            value={selectedDate}
+            onChange={handleDateChange}
+            className={`text-sm py-1 px-2 rounded border ${
+              isDarkMode 
+              ? 'bg-[#1F1F1F] border-[#374151] text-[#EAEAEA]' 
+              : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          >
+            {dateOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
-      {savedSubtitles.length === 0 ? (
+      {filteredSubtitles.length === 0 ? (
         <div className={`text-center py-10 ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>
           <div className="text-4xl mb-3">📚</div>
           <p className="font-medium">저장된 자막이 없습니다.</p>
@@ -279,7 +394,7 @@ const Popup = () => {
         </div>
       ) : (
         <div className="space-y-3 max-h-[270px] overflow-y-auto pr-2 mb-3">
-          {savedSubtitles.map((subtitle) => (
+          {filteredSubtitles.map((subtitle) => (
             <div key={subtitle.id} className={`${isDarkMode ? 'bg-[#1F1F1F] hover:bg-[#2C2C2C]' : 'bg-white hover:shadow-md'} p-3 rounded-lg shadow transition-shadow`}>
               <div className="flex justify-between items-start">
                 <div>
@@ -299,13 +414,14 @@ const Popup = () => {
         </div>
       )}
       <div className={`flex items-center justify-center h-10 text-xs border-t ${isDarkMode ? 'border-[#374151] text-[#9CA3AF]' : 'border-gray-200 text-gray-500'}`}>
-        <div className="flex items-center gap-2 leading-tight">
-          <span className="bg-gray-200 text-gray-700 px-2 py-[3px] rounded font-mono text-sm">Shift+C</span>
-          <span className="text-sm">자막 저장</span>
+        <div className="flex items-center">
+          <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono mr-1">Shift+C</span>
+          <span>자막 저장</span>
         </div>
       </div>
     </div>
   );
+  };
 
   const AnalysisTab = ({ 
     koreanSubs, 

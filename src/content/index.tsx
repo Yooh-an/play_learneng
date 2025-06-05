@@ -542,6 +542,9 @@ interface SavedSubtitle {
   primaryText: string;
   secondaryText: string;
   savedAt?: string;
+  timestamp?: number;
+  episodeTitle?: string;
+  savedDate?: string; // 'YYYY-MM-DD' 형식의 저장 날짜
 }
 
 // 자막 클릭 이벤트 처리를 위한 전역 이벤트 리스너 추가
@@ -639,11 +642,17 @@ function saveSubtitleToStorage(subtitle: { primaryText: string; secondaryText: s
     // 고유 ID 생성
     const uniqueId = `subtitle_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     
+    // 현재 날짜 문자열 생성 ('YYYY-MM-DD' 형식)
+    const now = new Date();
+    const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
     const reviewSubtitle: SavedSubtitle = {
       id: uniqueId,
       primaryText: subtitle.primaryText,
       secondaryText: subtitle.secondaryText,
-      savedAt: new Date().toISOString()
+      savedAt: now.toISOString(),
+      timestamp: subtitle.timestamp,
+      savedDate: dateString // 날짜 정보 추가
     };
     
     logger.log('자막을 저장소에 저장:', reviewSubtitle);
