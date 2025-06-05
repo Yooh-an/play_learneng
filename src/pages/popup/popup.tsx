@@ -270,12 +270,16 @@ const Popup = () => {
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-900'}`}>단어장</h3>
+        <div className={`flex items-center text-xs ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>
+          <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono mr-1">Shift+C</span>
+          <span>자막 저장</span>
+        </div>
       </div>
       {savedSubtitles.length === 0 ? (
         <div className={`text-center py-10 ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>
           <div className="text-4xl mb-3">📚</div>
           <p className="font-medium">저장된 자막이 없습니다.</p>
-          <p className="text-sm mt-1">영상에서 자막을 클릭하여 단어장에 추가해보세요!</p>
+          <p className="text-sm mt-1">영상에서 자막을 클릭하거나 <span className="font-medium">Shift+C</span> 단축키로 단어장에 추가해보세요!</p>
         </div>
       ) : (
         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">

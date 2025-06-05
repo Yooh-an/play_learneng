@@ -17,6 +17,105 @@ import { logger } from '../utils/logger';
 logger.log('Play LearnEng Content Script Loaded');
 
 /**
+ * 단축키 설정 
+ * Shift+C 단축키로 현재 화면의 자막을 저장
+ */
+function setupKeyboardShortcuts(): void {
+  logger.log('[Content Script] 단축키 설정 중 (Shift+C)...');
+  
+  document.addEventListener('keydown', (event) => {
+    // Shift+C 조합 감지
+    if (event.key === 'C' && event.shiftKey) {
+      logger.log('[Content Script] 단축키 감지: Shift+C');
+      saveCurrentSubtitles();
+    }
+  });
+  
+  logger.log('[Content Script] 단축키 설정 완료');
+}
+
+/**
+ * 현재 화면에 보이는 자막을 저장하는 함수
+ */
+function saveCurrentSubtitles(): void {
+  logger.log('[Content Script] 현재 자막 저장 시도...');
+  
+  // 현재 화면에 표시된 자막 요소 찾기
+  const subtitleElements = document.querySelectorAll('.play-learneng-subtitle-text');
+  
+  if (subtitleElements.length === 0) {
+    logger.log('[Content Script] 저장할 자막을 찾을 수 없습니다.');
+    // 피드백 메시지 표시
+    showFeedbackMessage('저장할 자막을 찾을 수 없습니다.');
+    return;
+  }
+  
+  // 첫 번째 자막 요소(있다면) 클릭하여 저장 로직 트리거
+  (subtitleElements[0] as HTMLElement).click();
+  logger.log('[Content Script] 자막 저장을 위해 자막 요소 클릭됨');
+}
+
+/**
+ * 피드백 메시지 표시 함수
+ */
+function showFeedbackMessage(message: string): void {
+  // 피드백 메시지 표시 엘리먼트 생성
+  const feedbackElement = document.createElement('div');
+  feedbackElement.id = 'play-learneng-feedback';
+  
+  // 기존 피드백 제거 (중복 방지)
+  const existingFeedback = document.getElementById('play-learneng-feedback');
+  if (existingFeedback && existingFeedback.parentNode) {
+    existingFeedback.parentNode.removeChild(existingFeedback);
+  }
+  
+  // 피드백 메시지에 아이콘 추가
+  const isSuccess = message.includes('저장되었습니다');
+  feedbackElement.innerHTML = `
+    <span style="margin-right: 8px">${isSuccess ? '✅' : '⚠️'}</span>
+    <span>${message}</span>
+  `;
+  
+  // 스타일 적용
+  Object.assign(feedbackElement.style, {
+    position: 'fixed',
+    top: '50px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    padding: '10px 20px',
+    backgroundColor: isSuccess ? 'rgba(25, 135, 84, 0.85)' : 'rgba(220, 53, 69, 0.85)',
+    color: '#fff',
+    borderRadius: '6px',
+    fontWeight: 'bold',
+    zIndex: '10000',
+    transition: 'all 0.3s ease',
+    opacity: '0',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.15)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '16px'
+  });
+  
+  document.body.appendChild(feedbackElement);
+  
+  // 애니메이션 효과
+  setTimeout(() => {
+    feedbackElement.style.opacity = '1';
+  }, 10);
+  
+  // 일정 시간 후 제거
+  setTimeout(() => {
+    feedbackElement.style.opacity = '0';
+    setTimeout(() => {
+      if (feedbackElement.parentNode) {
+        feedbackElement.parentNode.removeChild(feedbackElement);
+      }
+    }, 300);
+  }, 3000);
+}
+
+/**
  * 확장 프로그램 UI 초기화
  */
 async function initialize() {
@@ -40,6 +139,9 @@ async function initialize() {
       return;
     }
   }
+  
+  // 단축키 이벤트 리스너 등록
+  setupKeyboardShortcuts();
   
   // 디버깅: 쿠팡 플레이 DOM 구조 분석 실행
   logger.log('DOM 분석 결과:', analyzeVideoPlayerDOM());
