@@ -132,7 +132,9 @@ const Popup = () => {
 
   // Helper to parse VTT (ensure this is robust)
   const parseVTT = (vttContent: string, languagePrefix: 'ko' | 'en'): VttSubtitle[] => {
-    if (!vttContent) return [];
+    if (!vttContent || typeof vttContent !== 'string' || vttContent.trim() === '') {
+      return [];
+    }
     const subtitles: VttSubtitle[] = [];
     const lines = vttContent.split(/\r?\n/);
     let i = 0;
@@ -206,6 +208,25 @@ const Popup = () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.url?.includes('coupangplay.com')) {
         setIsPlaying(true);
+        
+        // 현재 동영상 정보 요청
+        chrome.tabs.sendMessage(tabs[0].id!, { type: 'GET_CURRENT_VIDEO_INFO' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('현재 동영상 정보를 가져오는 중 오류 발생:', chrome.runtime.lastError);
+            return;
+          }
+          
+          // 응답이 있고 비디오 ID가 있다면 이를 백그라운드에 전달
+          if (response && response.videoId) {
+            chrome.runtime.sendMessage({ 
+              type: 'POPUP_VERIFY_VIDEO_ID', 
+              payload: { 
+                tabId: tabs[0].id!,
+                videoId: response.videoId 
+              } 
+            });
+          }
+        });
       }
     });
     
@@ -231,14 +252,14 @@ const Popup = () => {
 
     const fetchVttFromStorage = () => {
       chrome.storage.local.get(['koreanVttContent', 'englishVttContent'], (data) => {
-        if (data.koreanVttContent) {
-          const parsedKorean = parseVTT(data.koreanVttContent as string, 'ko');
+        if (data.koreanVttContent && typeof data.koreanVttContent === 'string') {
+          const parsedKorean = parseVTT(data.koreanVttContent, 'ko');
           setKoreanVttSubtitles(parsedKorean);
         } else {
           setKoreanVttSubtitles([]);
         }
-        if (data.englishVttContent) {
-          const parsedEnglish = parseVTT(data.englishVttContent as string, 'en');
+        if (data.englishVttContent && typeof data.englishVttContent === 'string') {
+          const parsedEnglish = parseVTT(data.englishVttContent, 'en');
           setEnglishVttSubtitles(parsedEnglish);
         } else {
           setEnglishVttSubtitles([]);
@@ -258,12 +279,22 @@ const Popup = () => {
       }
       if (areaName === 'local') {
         if (changes.koreanVttContent) {
-          const parsedKorean = parseVTT(changes.koreanVttContent.newValue as string || '', 'ko');
-          setKoreanVttSubtitles(parsedKorean);
+          const newKoreanVtt = changes.koreanVttContent.newValue;
+          if (newKoreanVtt && typeof newKoreanVtt === 'string') {
+            const parsedKorean = parseVTT(newKoreanVtt, 'ko');
+            setKoreanVttSubtitles(parsedKorean);
+          } else {
+            setKoreanVttSubtitles([]);
+          }
         }
         if (changes.englishVttContent) {
-          const parsedEnglish = parseVTT(changes.englishVttContent.newValue as string || '', 'en');
-          setEnglishVttSubtitles(parsedEnglish);
+          const newEnglishVtt = changes.englishVttContent.newValue;
+          if (newEnglishVtt && typeof newEnglishVtt === 'string') {
+            const parsedEnglish = parseVTT(newEnglishVtt, 'en');
+            setEnglishVttSubtitles(parsedEnglish);
+          } else {
+            setEnglishVttSubtitles([]);
+          }
         }
       }
     };
@@ -477,13 +508,13 @@ const Popup = () => {
             onClick={() => setSelectedAnalysisLanguage('ko')} 
             className={`flex-1 py-2 px-3 text-sm font-medium transition-colors ${selectedAnalysisLanguage === 'ko' ? `border-b-2 border-blue-500 text-blue-600 ${isDarkMode ? 'bg-[#1F1F1F]' : 'bg-blue-50'}` : `${isDarkMode ? 'text-[#9CA3AF] hover:text-[#EAEAEA] hover:bg-[#2C2C2C]' : 'text-gray-500 hover:text-gray-700'} hover:border-gray-300`}`}
           >
-            한국어 ({koreanSubs.length})
+            한국어 ({koreanSubs.length || 0})
           </button>
           <button 
             onClick={() => setSelectedAnalysisLanguage('en')} 
             className={`flex-1 py-2 px-3 text-sm font-medium transition-colors ${selectedAnalysisLanguage === 'en' ? `border-b-2 border-blue-500 text-blue-600 ${isDarkMode ? 'bg-[#1F1F1F]' : 'bg-blue-50'}` : `${isDarkMode ? 'text-[#9CA3AF] hover:text-[#EAEAEA] hover:bg-[#2C2C2C]' : 'text-gray-500 hover:text-gray-700'} hover:border-gray-300`}`}
           >
-            영어 ({englishSubs.length})
+            영어 ({englishSubs.length || 0})
           </button>
         </div>
         

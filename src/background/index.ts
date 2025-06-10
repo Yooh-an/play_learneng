@@ -219,61 +219,71 @@ async function processMpdFile(mpdUrl: string, mpdContent: string, tabId: number)
     logger.log('[Background] Extracted subtitle URLs from MPD:', subtitleUrls);
 
     let currentData = tabSubtitleData.get(tabId) || { videoId: tabVideoIdMap.get(tabId) };
-    let changed = false;
-    const storageUpdates: { [key: string]: string } = {};
+    let finalKoreanVttContent = '';
+    let finalEnglishVttContent = '';
 
     // 한국어 자막 처리
-    if (subtitleUrls.koUrl && subtitleUrls.koUrl !== currentData.koUrl) {
-      currentData.koUrl = subtitleUrls.koUrl;
-      changed = true;
-      try {
-        const koVttResponse = await fetch(subtitleUrls.koUrl);
-        if (koVttResponse.ok) {
-          const koVttText = await koVttResponse.text();
-          currentData.koVtt = koVttText;
-          storageUpdates.koreanVttContent = koVttText; // Store in chrome.storage.local
-          sendVttToContentScript(tabId, subtitleUrls.koUrl, koVttText, 'ko', currentData.videoId);
-        } else {
-          console.error(`[Background] Failed to fetch Korean VTT from ${subtitleUrls.koUrl}: ${koVttResponse.status}`);
+    if (subtitleUrls.koUrl) {
+        try {
+          const koVttResponse = await fetch(subtitleUrls.koUrl);
+          if (koVttResponse.ok) {
+            const koVttText = await koVttResponse.text();
+            finalKoreanVttContent = koVttText;
+            currentData.koVtt = koVttText; 
+            sendVttToContentScript(tabId, subtitleUrls.koUrl, koVttText, 'ko', currentData.videoId);
+          } else {
+            console.error(`[Background] Failed to fetch Korean VTT from ${subtitleUrls.koUrl}: ${koVttResponse.status}`);
+          }
+        } catch (error) {
+          console.error(`[Background] Error fetching Korean VTT:`, error);
         }
-      } catch (error) {
-        console.error(`[Background] Error fetching Korean VTT:`, error);
-      }
+      currentData.koUrl = subtitleUrls.koUrl;
+    } else {
+      // MPD에 한국어 자막 URL이 없는 경우, 관련 데이터 초기화
+      currentData.koUrl = undefined;
+      currentData.koVtt = undefined;
+      // finalKoreanVttContent는 이미 ''로 초기화되어 있음
     }
 
     // 영어 자막 처리
-    if (subtitleUrls.enUrl && subtitleUrls.enUrl !== currentData.enUrl) {
+    if (subtitleUrls.enUrl) {
+        try {
+          const enVttResponse = await fetch(subtitleUrls.enUrl);
+          if (enVttResponse.ok) {
+            const enVttText = await enVttResponse.text();
+            finalEnglishVttContent = enVttText;
+            currentData.enVtt = enVttText; 
+            sendVttToContentScript(tabId, subtitleUrls.enUrl, enVttText, 'en', currentData.videoId);
+          } else {
+            console.error(`[Background] Failed to fetch English VTT from ${subtitleUrls.enUrl}: ${enVttResponse.status}`);
+          }
+        } catch (error) {
+          console.error(`[Background] Error fetching English VTT:`, error);
+        }
       currentData.enUrl = subtitleUrls.enUrl;
-      changed = true;
-      try {
-        const enVttResponse = await fetch(subtitleUrls.enUrl);
-        if (enVttResponse.ok) {
-          const enVttText = await enVttResponse.text();
-          currentData.enVtt = enVttText;
-          storageUpdates.englishVttContent = enVttText; // Store in chrome.storage.local
-          sendVttToContentScript(tabId, subtitleUrls.enUrl, enVttText, 'en', currentData.videoId);
-        } else {
-          console.error(`[Background] Failed to fetch English VTT from ${subtitleUrls.enUrl}: ${enVttResponse.status}`);
-        }
-      } catch (error) {
-        console.error(`[Background] Error fetching English VTT:`, error);
+    } else {
+      // MPD에 영어 자막 URL이 없는 경우, 관련 데이터 초기화
+      currentData.enUrl = undefined;
+      currentData.enVtt = undefined;
+      // finalEnglishVttContent는 이미 ''로 초기화되어 있음
+    }
+
+    tabSubtitleData.set(tabId, currentData);
+
+    // chrome.storage.local을 항상 현재 MPD 상태로 업데이트 (자막 없으면 빈 문자열)
+    const storageUpdateData = {
+      koreanVttContent: finalKoreanVttContent,
+      englishVttContent: finalEnglishVttContent
+    };
+
+    chrome.storage.local.set(storageUpdateData, () => {
+      if (chrome.runtime.lastError) {
+        console.error('[Background] Error saving VTT content to chrome.storage.local:', chrome.runtime.lastError);
+      } else {
+        logger.log('[Background] VTT content (or empty strings if not found) saved to chrome.storage.local:', storageUpdateData);
       }
-    }
+    });
 
-    if (changed || !tabSubtitleData.has(tabId)) {
-      tabSubtitleData.set(tabId, currentData);
-    }
-
-    // Update chrome.storage.local if there are new VTT contents
-    if (Object.keys(storageUpdates).length > 0) {
-      chrome.storage.local.set(storageUpdates, () => {
-        if (chrome.runtime.lastError) {
-          console.error('[Background] Error saving VTT content to chrome.storage.local:', chrome.runtime.lastError);
-        } else {
-          logger.log('[Background] VTT content saved to chrome.storage.local:', storageUpdates);
-        }
-      });
-    }
   } catch (error) {
     console.error(`[Background] Error processing MPD file:`, error);
   }
@@ -352,14 +362,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   else if (message.type === 'VIDEO_ELEMENT_FOUND') {
     if (message.payload?.videoId) {
       logger.log(`[Background] VIDEO_ELEMENT_FOUND from tab ${tabId}: videoId = ${message.payload.videoId}`);
-      tabVideoIdMap.set(tabId, message.payload.videoId);
       
-      let currentData = tabSubtitleData.get(tabId);
-      if (currentData) {
-        currentData.videoId = message.payload.videoId;
+      const prevVideoId = tabVideoIdMap.get(tabId);
+      const newVideoId = message.payload.videoId;
+      
+      // 동영상이 변경된 경우 저장된 자막 데이터를 초기화합니다
+      if (prevVideoId && prevVideoId !== newVideoId) {
+        logger.log(`[Background] Video changed from ${prevVideoId} to ${newVideoId}, clearing subtitle data`);
+        
+        // chrome.storage.local에서 자막 데이터 초기화
+        chrome.storage.local.set({
+          koreanVttContent: '',
+          englishVttContent: ''
+        }, () => {
+          logger.log('[Background] Cleared previous subtitle data from storage');
+        });
+        
+        // tabSubtitleData에서도 자막 데이터 초기화하며 videoId만 유지
+        tabSubtitleData.set(tabId, { videoId: newVideoId });
+
+        // 콘텐츠 스크립트에게도 videoId 변경 및 VTT 매니저 초기화 필요성을 알림
+        if (tabId) {
+          chrome.tabs.sendMessage(tabId, {
+            type: 'VIDEO_ELEMENT_FOUND_FOR_CONTENT_SCRIPT_REFRESH',
+            payload: { videoId: newVideoId }
+          }).then(response => {
+            if (chrome.runtime.lastError) {
+              logger.error(`[Background] Error sending VIDEO_ELEMENT_FOUND_FOR_CONTENT_SCRIPT_REFRESH to tab ${tabId}:`, chrome.runtime.lastError.message);
+            } else {
+              logger.log(`[Background] Sent VIDEO_ELEMENT_FOUND_FOR_CONTENT_SCRIPT_REFRESH to tab ${tabId}, response:`, response);
+            }
+          }).catch(error => {
+            logger.error(`[Background] Exception sending VIDEO_ELEMENT_FOUND_FOR_CONTENT_SCRIPT_REFRESH to tab ${tabId}:`, error);
+          });
+        }
       } else {
-        tabSubtitleData.set(tabId, { videoId: message.payload.videoId });
+        // 첫 비디오이거나 같은 비디오인 경우
+        let currentData = tabSubtitleData.get(tabId);
+        if (currentData) {
+          currentData.videoId = newVideoId;
+        } else {
+          tabSubtitleData.set(tabId, { videoId: newVideoId });
+        }
       }
+      
+      // 항상 현재 videoId 업데이트
+      tabVideoIdMap.set(tabId, newVideoId);
       sendResponse({ success: true });
     } else {
       console.warn(`[Background] VIDEO_ELEMENT_FOUND from tab ${tabId} but no videoId in payload.`);
@@ -403,6 +451,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true });
       });
     });
+    return true;
+  }
+  else if (message.type === 'POPUP_VERIFY_VIDEO_ID') {
+    const { tabId, videoId } = message.payload;
+    
+    if (!isValidTabId(tabId) || !videoId) {
+      logger.warn('[Background] Invalid tabId or videoId in POPUP_VERIFY_VIDEO_ID message');
+      sendResponse({ success: false, error: 'Invalid tabId or videoId' });
+      return true;
+    }
+    
+    logger.log(`[Background] Popup verifying video ID: ${videoId} for tab ${tabId}`);
+    
+    // 탭에 저장된 현재 비디오 ID 확인
+    const storedVideoId = tabVideoIdMap.get(tabId);
+    
+    // 저장된 ID와 팝업에서 받은 ID가 다른 경우 자막 데이터 초기화
+    if (storedVideoId !== videoId) {
+      logger.log(`[Background] Video ID mismatch: stored=${storedVideoId}, popup=${videoId}. Clearing subtitle data.`);
+      
+      // chrome.storage.local에서 자막 데이터 초기화
+      chrome.storage.local.set({
+        koreanVttContent: '',
+        englishVttContent: ''
+      }, () => {
+        logger.log('[Background] Cleared outdated subtitle data from storage due to video ID mismatch');
+      });
+      
+      // 현재 비디오 ID 업데이트
+      tabVideoIdMap.set(tabId, videoId);
+      tabSubtitleData.set(tabId, { videoId: videoId });
+    }
+    
+    sendResponse({ success: true });
     return true;
   }
   else if (message.type === 'ADD_REVIEW_SUBTITLE') {

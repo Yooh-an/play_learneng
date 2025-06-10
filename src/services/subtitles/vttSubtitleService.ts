@@ -126,6 +126,18 @@ export class VTTSubtitleManager {
   }
 
   /**
+   * 모든 내부 자막 데이터(primary, secondary)를 초기화합니다.
+   * 새로운 비디오가 로드되거나 페이지가 변경될 때 호출되어 이전 자막 데이터가 표시되는 것을 방지합니다.
+   */
+  public clearSubtitles(): void {
+    this.primarySubtitle = null;
+    this.secondarySubtitle = null;
+    logger.log('[VTTSubtitleManager] All internal subtitles (primary and secondary) have been cleared.');
+    // TODO: 필요하다면 리스너에게 자막이 초기화되었음을 알리는 로직 추가
+    // 예: this.listeners.forEach(listener => listener.onSubtitlesCleared?.());
+  }
+
+  /**
    * 백그라운드 스크립트로부터 캡처된 VTT 데이터를 처리하는 메소드
    */
   public processCapturedVTT(subtitleData: CapturedSubtitle): void {

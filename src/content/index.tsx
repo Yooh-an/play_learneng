@@ -120,6 +120,12 @@ function showFeedbackMessage(message: string): void {
  */
 async function initialize() {
   logger.log('Play LearnEng: 초기화 중...');
+
+  // 이전 자막 데이터가 남아있을 수 있으므로 vttSubtitleManager의 내부 상태를 초기화합니다.
+  if (vttSubtitleManager && typeof vttSubtitleManager.clearSubtitles === 'function') {
+    vttSubtitleManager.clearSubtitles();
+    logger.log('[Content Script] VTTSubtitleManager 내부 자막 상태 초기화됨 (initialize)');
+  }
   
   // Extension context 유효성 확인
   if (!isExtensionContextValid()) {
@@ -160,6 +166,25 @@ async function initialize() {
   logger.log('Play LearnEng: 비디오 정보', videoInfo);
   logger.log('자막 컨테이너:', subtitleContainer);
   
+  // 백그라운드에 새 동영상 감지 알림
+  if (videoInfo && videoInfo.videoId) {
+    try {
+      logger.log(`Play LearnEng: 백그라운드에 동영상 감지 알림 (videoId: ${videoInfo.videoId})`);
+      chrome.runtime.sendMessage({
+        type: 'VIDEO_ELEMENT_FOUND',
+        payload: { videoId: videoInfo.videoId }
+      }).then(response => {
+        if (chrome.runtime.lastError) {
+          console.error('비디오 감지 알림 오류:', chrome.runtime.lastError);
+        } else {
+          logger.log('백그라운드에 비디오 감지 알림 성공:', response);
+        }
+      });
+    } catch (error) {
+      console.error('비디오 감지 알림 중 오류 발생:', error);
+    }
+  }
+  
   // TextTracks API를 사용한 자막 활성화 시도
   logger.log('텍스트 트랙 API를 통한 자막 활성화 시도...');
   activateAllTextTracks(videoElement);
@@ -186,7 +211,16 @@ async function initialize() {
   // 백그라운드로부터 VTT 데이터 수신 리스너
   const messageListener = (message, sender, sendResponse) => {
     try {
-      if (message.type === "VTT_RECEIVED") {
+      if (message.type === 'VIDEO_ELEMENT_FOUND_FOR_CONTENT_SCRIPT_REFRESH') { // 백그라운드에서 videoId 변경 시 보낼 새 메시지 타입
+        logger.log('[Content Script] Received VIDEO_ELEMENT_FOUND_FOR_CONTENT_SCRIPT_REFRESH, clearing VTT manager state.');
+        if (vttSubtitleManager && typeof vttSubtitleManager.clearSubtitles === 'function') {
+          vttSubtitleManager.clearSubtitles();
+        }
+        // UI 재마운트 또는 업데이트 로직이 필요할 수 있음
+        // 현재는 initialize()가 페이지 변경 시 호출되므로, 이 메시지는 주로 내부 상태 초기화에 집중
+        sendResponse({ success: true, message: 'VTT manager cleared in content script.' });
+      }
+      else if (message.type === "VTT_RECEIVED") {
         logger.log('[Content Script] VTT_RECEIVED from background:', message.payload);
         const { url, vtt, lang, videoId } = message.payload;
         
@@ -221,6 +255,23 @@ async function initialize() {
           console.error('[Content Script] Video element not found or timestamp invalid for JUMP_TO_TIME.');
           sendResponse({ success: false, error: 'Video element not found or timestamp invalid' });
         }
+      } else if (message.type === 'GET_CURRENT_VIDEO_INFO') {
+        logger.log('[Content Script] GET_CURRENT_VIDEO_INFO message received');
+        try {
+          const videoInfo = extractVideoInfo();
+          logger.log('[Content Script] Current video info:', videoInfo);
+          
+          if (videoInfo && videoInfo.videoId) {
+            sendResponse({ videoId: videoInfo.videoId, title: videoInfo.title });
+          } else {
+            logger.warn('[Content Script] No video info available');
+            sendResponse({ error: 'No video info available' });
+          }
+        } catch (error) {
+          console.error('[Content Script] Error getting video info:', error);
+          sendResponse({ error: 'Failed to get video info' });
+        }
+        return true; // Required for asynchronous sendResponse
       } else if (message.type === 'LE_GET_CURRENT_TIME') {
         // Attempt to find the main video element on the page.
         // This selector might need to be adjusted for Coupang Play or other target sites.
