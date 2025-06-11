@@ -198,14 +198,10 @@ function setupBackgroundMessageListener() {
         sendResponse({ success: true });
       }
       else if (message.type === 'PROCESSED_SUBTITLE_RECEIVED') {
-        logger.log('[Content Script] ✅ Received processed subtitle data from background:', message.payload);
         const subtitleData = message.payload as ProcessedSubtitleData;
         
-        // 데이터 검증 로그 추가
-        logger.log(`[Content Script] 🔍 Subtitle validation - Language: ${subtitleData.language}, Total cues: ${subtitleData.totalCues}, Valid: ${subtitleData.isValid}`);
-        
         if (!subtitleData.isValid || subtitleData.totalCues === 0) {
-          console.warn(`[Content Script] ⚠️ Invalid subtitle data received for ${subtitleData.language}:`, subtitleData);
+          console.warn(`[Content Script] Invalid subtitle data received for ${subtitleData.language}`);
           sendResponse({ success: false, error: 'Invalid subtitle data' });
           return;
         }
@@ -213,16 +209,11 @@ function setupBackgroundMessageListener() {
         // 언어별로 데이터 저장
         if (subtitleData.language === 'ko') {
           currentKoreanSubtitles = subtitleData;
-          logger.log(`[Content Script] 🇰🇷 Korean subtitles updated: ${subtitleData.totalCues} cues`);
-          logger.log(`[Content Script] 🇰🇷 First Korean cue:`, subtitleData.cues[0]);
+          logger.log(`[Content Script] Korean subtitles loaded: ${subtitleData.totalCues} cues`);
         } else if (subtitleData.language === 'en') {
           currentEnglishSubtitles = subtitleData;
-          logger.log(`[Content Script] 🇺🇸 English subtitles updated: ${subtitleData.totalCues} cues`);
-          logger.log(`[Content Script] 🇺🇸 First English cue:`, subtitleData.cues[0]);
+          logger.log(`[Content Script] English subtitles loaded: ${subtitleData.totalCues} cues`);
         }
-        
-        // 현재 VTT 데이터 상태 로그
-        logger.log(`[Content Script] 📊 Current VTT state - Korean: ${currentKoreanSubtitles?.totalCues || 0} cues, English: ${currentEnglishSubtitles?.totalCues || 0} cues`);
         
         // PlayerController에 업데이트 알림 (커스텀 이벤트 사용)
         const updateEvent = new CustomEvent('vttSubtitlesUpdated', {
@@ -233,12 +224,10 @@ function setupBackgroundMessageListener() {
           }
         });
         document.dispatchEvent(updateEvent);
-        logger.log('[Content Script] 📡 Dispatched vttSubtitlesUpdated event');
         
         sendResponse({ success: true });
       }
       else if (message.type === 'JUMP_TO_TIME') {
-        logger.log(`[Content Script] JUMP_TO_TIME message received:`, message.timestamp);
         const videoElement = document.querySelector('video');
         if (videoElement && typeof message.timestamp === 'number') {
           videoElement.currentTime = message.timestamp;
@@ -249,15 +238,12 @@ function setupBackgroundMessageListener() {
         }
       } 
       else if (message.type === 'GET_CURRENT_VIDEO_INFO') {
-        logger.log('[Content Script] GET_CURRENT_VIDEO_INFO message received');
         try {
           const videoInfo = extractVideoInfo();
-          logger.log('[Content Script] Current video info:', videoInfo);
           
           if (videoInfo && videoInfo.videoId) {
             sendResponse({ videoId: videoInfo.videoId, title: videoInfo.title });
           } else {
-            logger.warn('[Content Script] No video info available');
             sendResponse({ error: 'No video info available' });
           }
         } catch (error) {
@@ -271,13 +257,11 @@ function setupBackgroundMessageListener() {
         if (videoElement) {
           sendResponse({ currentTime: videoElement.currentTime });
         } else {
-          console.warn('LE_GET_CURRENT_TIME: Video element not found.');
           sendResponse({ currentTime: 0 });
         }
         return true;
       } 
       else if (message.type === 'SETTINGS_UPDATED') {
-        logger.log('Content script received settings update:', message.settings);
         // 설정 업데이트 이벤트 전달
         const settingsEvent = new CustomEvent('settingsUpdated', {
           detail: message.settings
@@ -373,19 +357,14 @@ try {
   }
 }
 
-// VTT 데이터 접근을 위한 전역 디버깅 객체 강화
+// VTT 데이터 접근을 위한 전역 디버깅 객체 (로그 제거)
 (window as any).playLearnEngDebug = {
-  getCurrentSubtitles: () => {
-    const result = {
-      korean: currentKoreanSubtitles,
-      english: currentEnglishSubtitles,
-      videoId: currentVideoId
-    };
-    console.log('📊 Current subtitle state:', result);
-    return result;
-  },
+  getCurrentSubtitles: () => ({
+    korean: currentKoreanSubtitles,
+    english: currentEnglishSubtitles,
+    videoId: currentVideoId
+  }),
   
-  // 현재 시간에 해당하는 자막 텍스트 가져오기
   getCurrentSubtitleText: (currentTime: number) => {
     const korean = currentKoreanSubtitles?.cues.find(cue => 
       currentTime >= cue.startTime && currentTime <= cue.endTime
@@ -395,9 +374,7 @@ try {
       currentTime >= cue.startTime && currentTime <= cue.endTime
     )?.text || '';
     
-    const result = { korean, english, currentTime };
-    console.log('🎬 Current subtitle text at time', currentTime, ':', result);
-    return result;
+    return { korean, english, currentTime };
   },
   
   triggerSubtitleUpdate: () => {
@@ -409,22 +386,15 @@ try {
       }
     });
     document.dispatchEvent(updateEvent);
-    console.log('📡 Manually triggered vttSubtitlesUpdated event');
   },
   
-  // 테스트용 - 현재 비디오 시간 가져오기
   getCurrentVideoTime: () => {
     const video = document.querySelector('video');
-    if (video) {
-      console.log('⏰ Current video time:', video.currentTime);
-      return video.currentTime;
-    }
-    console.warn('⚠️ Video element not found');
-    return 0;
+    return video ? video.currentTime : 0;
   }
 };
 
-logger.log('Play LearnEng VTT 중개자 모드로 로드됨. window.playLearnEngDebug로 디버깅 가능.');
+logger.log('Play LearnEng VTT 중개자 모드로 로드됨.');
 
 // 자막 저장 관련 타입 정의
 interface SavedSubtitle {

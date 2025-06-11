@@ -163,16 +163,11 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
   // VTT 데이터 업데이트 리스너
   useEffect(() => {
     const handleVttUpdate = (event: CustomEvent) => {
-      logger.log('[PlayerController] 📡 VTT subtitles updated event received:', event.detail);
-      
-      // 데이터 검증
-      const { korean, english, videoId } = event.detail;
-      logger.log(`[PlayerController] 🔍 VTT data validation - Korean: ${korean?.totalCues || 0} cues, English: ${english?.totalCues || 0} cues, VideoId: ${videoId}`);
-      
+      logger.log('[PlayerController] VTT subtitles updated');
       // VTT 데이터가 업데이트되면 현재 시간에 맞는 자막을 찾아서 설정
       setTimeout(() => {
         updateCurrentSubtitles();
-      }, 100); // 약간의 지연을 주어 상태 업데이트를 보장
+      }, 100);
     };
 
     document.addEventListener('vttSubtitlesUpdated', handleVttUpdate as EventListener);
@@ -184,19 +179,11 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
 
   // 현재 시간에 맞는 자막 업데이트
   const updateCurrentSubtitles = useCallback(() => {
-    logger.log('[PlayerController] 🔄 updateCurrentSubtitles called');
-    
-    if (!subtitleSettings) {
-      logger.log('[PlayerController] ⚠️ No subtitle settings available');
-      return;
-    }
+    if (!subtitleSettings) return;
 
     const currentVideoTime = videoElement.currentTime + subtitleSync;
     const koreanData = getKoreanSubtitles();
     const englishData = getEnglishSubtitles();
-    
-    logger.log(`[PlayerController] ⏰ Current video time: ${currentVideoTime.toFixed(2)}s (sync: ${subtitleSync})`);
-    logger.log(`[PlayerController] 📊 Available data - Korean: ${koreanData?.totalCues || 0} cues, English: ${englishData?.totalCues || 0} cues`);
 
     // 현재 시간에 해당하는 자막 찾기
     const currentKoreanCue = koreanData?.cues.find(cue => 
@@ -206,8 +193,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     const currentEnglishCue = englishData?.cues.find(cue => 
       currentVideoTime >= cue.startTime && currentVideoTime <= cue.endTime
     );
-
-    logger.log(`[PlayerController] 🎯 Found cues - Korean: ${currentKoreanCue ? `"${currentKoreanCue.text.substring(0, 30)}..."` : 'none'}, English: ${currentEnglishCue ? `"${currentEnglishCue.text.substring(0, 30)}..."` : 'none'}`);
 
     // 언어 설정에 따라 주/부 자막 결정
     let primaryText = '';
@@ -221,27 +206,21 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       secondaryText = currentKoreanCue?.text || '';
     }
 
-    logger.log(`[PlayerController] 🎬 Final subtitle texts - Primary (${subtitleSettings.primaryLanguage}): "${primaryText.substring(0, 30)}...", Secondary (${subtitleSettings.secondaryLanguage}): "${secondaryText.substring(0, 30)}..."`);
-
     // 자막이 있을 때만 상태 업데이트
     if (primaryText || secondaryText) {
       const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles;
       if (currentActiveStoreSubtitles?.primaryText !== primaryText || 
           currentActiveStoreSubtitles?.secondaryText !== secondaryText) {
-        logger.log('[PlayerController] ✅ Setting new active subtitles');
         setActiveSubtitles({ 
           primaryText, 
           secondaryText, 
           timestamp: currentVideoTime 
         });
-      } else {
-        logger.log('[PlayerController] 🔄 Subtitles unchanged, skipping update');
       }
     } else {
       // 자막이 없으면 클리어
       const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles;
       if (currentActiveStoreSubtitles) {
-        logger.log('[PlayerController] 🧹 Clearing active subtitles');
         setActiveSubtitles(null);
       }
     }
@@ -299,11 +278,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
   };
   
   const renderDualSubtitles = useCallback((subtitle: ActiveSubtitle) => {
-    logger.log('[PlayerController] 🎨 renderDualSubtitles called with:', { 
-      primaryText: subtitle.primaryText?.substring(0, 30) + '...', 
-      secondaryText: subtitle.secondaryText?.substring(0, 30) + '...' 
-    });
-    
     // CSS 스타일 주입
     const ensureStyles = () => {
       if (!document.getElementById('play-learneng-subtitle-styles')) {
@@ -340,7 +314,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
           }
         `;
         document.head.appendChild(style);
-        logger.log('[PlayerController] 🎨 Injected subtitle styles');
       }
     };
     
@@ -355,16 +328,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         container = document.createElement('div');
         container.id = 'play-learneng-subtitle-container';
         videoContainer.appendChild(container);
-        logger.log('[PlayerController] 📦 Created new subtitle container');
-      } else {
-        console.warn('[PlayerController] ⚠️ 비디오 컨테이너를 찾을 수 없어 자막을 표시할 수 없습니다.');
-        logger.log('[PlayerController] 🔍 Available containers:', {
-          videoJs: !!document.querySelector('.video-js'),
-          playerById: !!document.querySelector('[id*="player"]'),
-          playerContainer: !!document.querySelector('.player-container'),
-          body: !!document.body
-        });
-        return;
       }
     }
     
@@ -378,25 +341,17 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         width: 100% !important; z-index: 9999 !important; pointer-events: none !important; padding: 0 30px !important; box-sizing: border-box !important;
         text-align: center !important; gap: 0 !important;
       `;
-      
-      logger.log(`[PlayerController] 📍 Container positioned at ${topPercentage}% from top`);
     }
     
     container.innerHTML = '';
-    logger.log('[PlayerController] 🧹 Cleared container content');
 
-    if (!subtitleSettings) {
-      logger.log('[PlayerController] ⚠️ Subtitle settings not yet loaded. Not rendering subtitles.');
-      return;
-    }
+    if (!subtitleSettings) return;
 
     const primaryTextToDisplay = subtitle.primaryText;
     const secondaryTextToDisplay = subtitle.secondaryText;
 
     const primaryLang = subtitleSettings.primaryLanguage;
     const secondaryLang = subtitleSettings.secondaryLanguage;
-
-    logger.log(`[PlayerController] 🎭 Rendering logic - Enabled: ${subtitleSettings.enabled}, DisplayMode: ${displayMode}, Primary: "${primaryTextToDisplay?.substring(0, 20)}...", Secondary: "${secondaryTextToDisplay?.substring(0, 20)}..."`);
 
     // 주 자막 표시 로직
     if (primaryTextToDisplay) {
@@ -426,12 +381,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
           cursor: pointer !important;
         `;
         container.appendChild(primaryElement);
-        logger.log(`[PlayerController] ✅ Added primary subtitle element (${primaryLang}): "${primaryTextToDisplay.substring(0, 30)}..."`);
-      } else {
-        logger.log(`[PlayerController] 🚫 Primary subtitle skipped - Enabled: ${subtitleSettings.enabled}, DisplayMode: ${displayMode}`);
       }
-    } else {
-      logger.log('[PlayerController] 🚫 No primary text to display');
     }
     
     // 부 자막 표시 로직
@@ -462,31 +412,20 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         cursor: pointer !important;
       `;
       container.appendChild(secondaryElement);
-      logger.log(`[PlayerController] ✅ Added secondary subtitle element (${secondaryLang}): "${secondaryTextToDisplay.substring(0, 30)}..."`);
-    } else {
-      logger.log(`[PlayerController] 🚫 Secondary subtitle skipped - Enabled: ${subtitleSettings.enabled}, DisplayMode: ${displayMode}, HasText: ${!!secondaryTextToDisplay}`);
     }
-    
-    logger.log(`[PlayerController] 📊 Final container state - Children: ${container.children.length}`);
   }, [displayMode, subtitleSettings]);
 
   // 활성 자막 렌더링
   useEffect(() => {
-    logger.log('[PlayerController] 🔄 Active subtitles effect triggered');
     const currentActiveStoreSubtitles = useSubtitleStore.getState().activeSubtitles;
     
     if (currentActiveStoreSubtitles) {
-      logger.log('[PlayerController] 🎬 Rendering active subtitles:', {
-        primary: currentActiveStoreSubtitles.primaryText?.substring(0, 30) + '...',
-        secondary: currentActiveStoreSubtitles.secondaryText?.substring(0, 30) + '...'
-      });
       renderDualSubtitles(currentActiveStoreSubtitles);
     } else {
       // 자막 클리어
       let container = document.getElementById('play-learneng-subtitle-container');
       if (container) {
         container.innerHTML = '';
-        logger.log('[PlayerController] 🧹 Cleared subtitle container');
       }
     }
   }, [activeSubtitles, displayMode, renderDualSubtitles, subtitleSettings]); 
