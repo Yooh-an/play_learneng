@@ -1,20 +1,32 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import '../index.css';
-import { detectPlayerWithRetry, watchPageChanges, extractVideoInfo, hideOriginalSubtitles, showOriginalSubtitles } from '../utils/playerDetector';
+import { detectPlayerWithRetry, extractVideoInfo, hideOriginalSubtitles, watchPageChanges } from '../utils/playerDetector';
 import PlayerController from '../components/player/PlayerController';
-
-// 디버깅 도구 임포트
-import { analyzeVideoPlayerDOM } from '../utils/debugDomStructure'; // highlightSubtitleElements 제거
-// import { interceptSubtitleRequests, fetchSubtitleManually } from '../utils/subtitleCapturer'; // chrome.debugger 사용으로 주석 처리
-import { fetchSubtitleManually, parseVTT } from '../utils/subtitleCapturer'; // parseVTT 임포트 추가
-import vttSubtitleManager from '../services/subtitles/vttSubtitleService';
-import { cleanupExtensionResources, restoreOriginalSubtitles } from '../utils/cleanupHelper';
-// 자막 트랙 관리 유틸리티 추가
-import { activateAllTextTracks, setSubtitleLanguage, getActiveSubtitleText } from '../utils/trackManager';
 import { logger } from '../utils/logger';
 
 logger.log('Play LearnEng Content Script Loaded');
+
+// VTT 데이터 상태 관리
+interface ProcessedSubtitleData {
+  language: string;
+  cues: Array<{
+    id?: string;
+    startTime: number;
+    endTime: number;
+    text: string;
+    settings?: string;
+  }>;
+  videoId?: string;
+  totalCues: number;
+  duration?: number;
+  isValid: boolean;
+}
+
+// 전역 상태로 VTT 데이터 관리
+let currentKoreanSubtitles: ProcessedSubtitleData | null = null;
+let currentEnglishSubtitles: ProcessedSubtitleData | null = null;
+let currentVideoId: string | null = null;
 
 /**
  * 단축키 설정 
@@ -24,7 +36,6 @@ function setupKeyboardShortcuts(): void {
   logger.log('[Content Script] 단축키 설정 중 (Shift+C)...');
   
   document.addEventListener('keydown', (event) => {
-    // Shift+C 조합 감지
     if (event.key === 'C' && event.shiftKey) {
       logger.log('[Content Script] 단축키 감지: Shift+C');
       saveCurrentSubtitles();
@@ -40,17 +51,14 @@ function setupKeyboardShortcuts(): void {
 function saveCurrentSubtitles(): void {
   logger.log('[Content Script] 현재 자막 저장 시도...');
   
-  // 현재 화면에 표시된 자막 요소 찾기
   const subtitleElements = document.querySelectorAll('.play-learneng-subtitle-text');
   
   if (subtitleElements.length === 0) {
     logger.log('[Content Script] 저장할 자막을 찾을 수 없습니다.');
-    // 피드백 메시지 표시
     showFeedbackMessage('저장할 자막을 찾을 수 없습니다.');
     return;
   }
   
-  // 첫 번째 자막 요소(있다면) 클릭하여 저장 로직 트리거
   (subtitleElements[0] as HTMLElement).click();
   logger.log('[Content Script] 자막 저장을 위해 자막 요소 클릭됨');
 }
@@ -59,24 +67,20 @@ function saveCurrentSubtitles(): void {
  * 피드백 메시지 표시 함수
  */
 function showFeedbackMessage(message: string): void {
-  // 피드백 메시지 표시 엘리먼트 생성
   const feedbackElement = document.createElement('div');
   feedbackElement.id = 'play-learneng-feedback';
   
-  // 기존 피드백 제거 (중복 방지)
   const existingFeedback = document.getElementById('play-learneng-feedback');
   if (existingFeedback && existingFeedback.parentNode) {
     existingFeedback.parentNode.removeChild(existingFeedback);
   }
   
-  // 피드백 메시지에 아이콘 추가
   const isSuccess = message.includes('저장되었습니다');
   feedbackElement.innerHTML = `
     <span style="margin-right: 8px">${isSuccess ? '✅' : '⚠️'}</span>
     <span>${message}</span>
   `;
   
-  // 스타일 적용
   Object.assign(feedbackElement.style, {
     position: 'fixed',
     top: '50px',
@@ -99,12 +103,10 @@ function showFeedbackMessage(message: string): void {
   
   document.body.appendChild(feedbackElement);
   
-  // 애니메이션 효과
   setTimeout(() => {
     feedbackElement.style.opacity = '1';
   }, 10);
   
-  // 일정 시간 후 제거
   setTimeout(() => {
     feedbackElement.style.opacity = '0';
     setTimeout(() => {
@@ -121,12 +123,6 @@ function showFeedbackMessage(message: string): void {
 async function initialize() {
   logger.log('Play LearnEng: 초기화 중...');
 
-  // 이전 자막 데이터가 남아있을 수 있으므로 vttSubtitleManager의 내부 상태를 초기화합니다.
-  if (vttSubtitleManager && typeof vttSubtitleManager.clearSubtitles === 'function') {
-    vttSubtitleManager.clearSubtitles();
-    logger.log('[Content Script] VTTSubtitleManager 내부 자막 상태 초기화됨 (initialize)');
-  }
-  
   // Extension context 유효성 확인
   if (!isExtensionContextValid()) {
     console.error('[Content Script] Extension context is invalid. Reload required.');
@@ -149,10 +145,7 @@ async function initialize() {
   // 단축키 이벤트 리스너 등록
   setupKeyboardShortcuts();
   
-  // 디버깅: 쿠팡 플레이 DOM 구조 분석 실행
-  logger.log('DOM 분석 결과:', analyzeVideoPlayerDOM());
-  
-  // 플레이어 및 자막 컨테이너 감지
+  // 플레이어 감지 (자막 컨테이너는 더 이상 필요하지 않음)
   const detection = await detectPlayerWithRetry(15, 1000);
   
   if (!detection) {
@@ -160,92 +153,91 @@ async function initialize() {
     return;
   }
   
-  const { videoElement, subtitleContainer } = detection;
+  const { videoElement } = detection;
   const videoInfo = extractVideoInfo();
   
   logger.log('Play LearnEng: 비디오 정보', videoInfo);
-  logger.log('자막 컨테이너:', subtitleContainer);
   
   // 백그라운드에 새 동영상 감지 알림
   if (videoInfo && videoInfo.videoId) {
     try {
       logger.log(`Play LearnEng: 백그라운드에 동영상 감지 알림 (videoId: ${videoInfo.videoId})`);
-      chrome.runtime.sendMessage({
+      currentVideoId = videoInfo.videoId;
+      
+      const response = await chrome.runtime.sendMessage({
         type: 'VIDEO_ELEMENT_FOUND',
         payload: { videoId: videoInfo.videoId }
-      }).then(response => {
-        if (chrome.runtime.lastError) {
-          console.error('비디오 감지 알림 오류:', chrome.runtime.lastError);
-        } else {
-          logger.log('백그라운드에 비디오 감지 알림 성공:', response);
-        }
       });
+      logger.log('백그라운드에 비디오 감지 알림 성공:', response);
     } catch (error) {
       console.error('비디오 감지 알림 중 오류 발생:', error);
     }
   }
-  
-  // TextTracks API를 사용한 자막 활성화 시도
-  logger.log('텍스트 트랙 API를 통한 자막 활성화 시도...');
-  activateAllTextTracks(videoElement);
-  
-  // 한국어와 영어 자막 모두 활성화 시도
-  setTimeout(() => {
-    setSubtitleLanguage(videoElement, 'ko');
-    setTimeout(() => {
-      // 활성화된 자막 텍스트 확인
-      const activeSubtitles = getActiveSubtitleText(videoElement);
-      logger.log('활성화된 자막 텍스트:', activeSubtitles);
-    }, 1000);
-  }, 2000);
 
-  // 자막 요청 인터셉션 초기화 (chrome.debugger 사용으로 주석 처리)
-  // logger.log('자막 인터셉션 초기화 중...');
-  // interceptSubtitleRequests();
+  // 백그라운드로부터 VTT 데이터 수신 리스너 설정
+  setupBackgroundMessageListener();
   
-  // VTT 자막 매니저 초기화 (chrome.debugger 사용으로 주석 처리 또는 로직 변경 필요)
-  // vttSubtitleManager.start(); 
-  // TODO: VTTSubtitleManager가 백그라운드로부터 받은 VTT 데이터를 사용하도록 수정 필요
-  logger.log('[Content Script] VTTSubtitleManager 시작은 chrome.debugger 결과를 받아 처리하도록 변경 예정');
+  // 쿠팡플레이 기본 자막 비활성화
+  hideOriginalSubtitles();
+  
+  // UI 요소 마운트 (subtitleContainer 제거)
+  mountUserInterface(videoElement, videoInfo);
+}
 
-  // 백그라운드로부터 VTT 데이터 수신 리스너
-  const messageListener = (message, sender, sendResponse) => {
+/**
+ * 백그라운드 메시지 리스너 설정
+ */
+function setupBackgroundMessageListener() {
+  const messageListener = (message: any, sender: any, sendResponse: any) => {
     try {
-      if (message.type === 'VIDEO_ELEMENT_FOUND_FOR_CONTENT_SCRIPT_REFRESH') { // 백그라운드에서 videoId 변경 시 보낼 새 메시지 타입
-        logger.log('[Content Script] Received VIDEO_ELEMENT_FOUND_FOR_CONTENT_SCRIPT_REFRESH, clearing VTT manager state.');
-        if (vttSubtitleManager && typeof vttSubtitleManager.clearSubtitles === 'function') {
-          vttSubtitleManager.clearSubtitles();
-        }
-        // UI 재마운트 또는 업데이트 로직이 필요할 수 있음
-        // 현재는 initialize()가 페이지 변경 시 호출되므로, 이 메시지는 주로 내부 상태 초기화에 집중
-        sendResponse({ success: true, message: 'VTT manager cleared in content script.' });
-      }
-      else if (message.type === "VTT_RECEIVED") {
-        logger.log('[Content Script] VTT_RECEIVED from background:', message.payload);
-        const { url, vtt, lang, videoId } = message.payload;
-        
-        try {
-          const cues = parseVTT(vtt);
-          logger.log(`[Content Script] Parsed VTT from background: ${cues.length} cues (${lang})`);
-          
-          // VTTSubtitleManager를 통해 자막 데이터 업데이트
-          if (vttSubtitleManager.processCapturedVTT) {
-             vttSubtitleManager.processCapturedVTT({ url, content: vtt, cues, language: lang });
-          } else {
-            console.warn('[Content Script] vttSubtitleManager.processCapturedVTT method not found. Manual processing needed.');
-            // 수동으로 primary/secondary subtitle 업데이트 로직 (임시)
-            if (lang === 'ko') {
-              logger.log('[Content Script] Received Korean VTT, needs method to set in VTTManager');
-            } else if (lang === 'en') {
-              logger.log('[Content Script] Received English VTT, needs method to set in VTTManager');
-            }
-          }
-
-        } catch (error) {
-          console.error('[Content Script] Error processing VTT from background:', error);
-        }
+      if (message.type === 'VIDEO_CHANGED') {
+        logger.log('[Content Script] Video changed, clearing subtitle data');
+        currentKoreanSubtitles = null;
+        currentEnglishSubtitles = null;
+        currentVideoId = message.payload?.videoId || null;
         sendResponse({ success: true });
-      } else if (message.type === 'JUMP_TO_TIME') {
+      }
+      else if (message.type === 'PROCESSED_SUBTITLE_RECEIVED') {
+        logger.log('[Content Script] ✅ Received processed subtitle data from background:', message.payload);
+        const subtitleData = message.payload as ProcessedSubtitleData;
+        
+        // 데이터 검증 로그 추가
+        logger.log(`[Content Script] 🔍 Subtitle validation - Language: ${subtitleData.language}, Total cues: ${subtitleData.totalCues}, Valid: ${subtitleData.isValid}`);
+        
+        if (!subtitleData.isValid || subtitleData.totalCues === 0) {
+          console.warn(`[Content Script] ⚠️ Invalid subtitle data received for ${subtitleData.language}:`, subtitleData);
+          sendResponse({ success: false, error: 'Invalid subtitle data' });
+          return;
+        }
+        
+        // 언어별로 데이터 저장
+        if (subtitleData.language === 'ko') {
+          currentKoreanSubtitles = subtitleData;
+          logger.log(`[Content Script] 🇰🇷 Korean subtitles updated: ${subtitleData.totalCues} cues`);
+          logger.log(`[Content Script] 🇰🇷 First Korean cue:`, subtitleData.cues[0]);
+        } else if (subtitleData.language === 'en') {
+          currentEnglishSubtitles = subtitleData;
+          logger.log(`[Content Script] 🇺🇸 English subtitles updated: ${subtitleData.totalCues} cues`);
+          logger.log(`[Content Script] 🇺🇸 First English cue:`, subtitleData.cues[0]);
+        }
+        
+        // 현재 VTT 데이터 상태 로그
+        logger.log(`[Content Script] 📊 Current VTT state - Korean: ${currentKoreanSubtitles?.totalCues || 0} cues, English: ${currentEnglishSubtitles?.totalCues || 0} cues`);
+        
+        // PlayerController에 업데이트 알림 (커스텀 이벤트 사용)
+        const updateEvent = new CustomEvent('vttSubtitlesUpdated', {
+          detail: {
+            korean: currentKoreanSubtitles,
+            english: currentEnglishSubtitles,
+            videoId: currentVideoId
+          }
+        });
+        document.dispatchEvent(updateEvent);
+        logger.log('[Content Script] 📡 Dispatched vttSubtitlesUpdated event');
+        
+        sendResponse({ success: true });
+      }
+      else if (message.type === 'JUMP_TO_TIME') {
         logger.log(`[Content Script] JUMP_TO_TIME message received:`, message.timestamp);
         const videoElement = document.querySelector('video');
         if (videoElement && typeof message.timestamp === 'number') {
@@ -255,7 +247,8 @@ async function initialize() {
           console.error('[Content Script] Video element not found or timestamp invalid for JUMP_TO_TIME.');
           sendResponse({ success: false, error: 'Video element not found or timestamp invalid' });
         }
-      } else if (message.type === 'GET_CURRENT_VIDEO_INFO') {
+      } 
+      else if (message.type === 'GET_CURRENT_VIDEO_INFO') {
         logger.log('[Content Script] GET_CURRENT_VIDEO_INFO message received');
         try {
           const videoInfo = extractVideoInfo();
@@ -271,46 +264,40 @@ async function initialize() {
           console.error('[Content Script] Error getting video info:', error);
           sendResponse({ error: 'Failed to get video info' });
         }
-        return true; // Required for asynchronous sendResponse
-      } else if (message.type === 'LE_GET_CURRENT_TIME') {
-        // Attempt to find the main video element on the page.
-        // This selector might need to be adjusted for Coupang Play or other target sites.
+        return true;
+      } 
+      else if (message.type === 'LE_GET_CURRENT_TIME') {
         const videoElement = document.querySelector('video'); 
         if (videoElement) {
           sendResponse({ currentTime: videoElement.currentTime });
         } else {
           console.warn('LE_GET_CURRENT_TIME: Video element not found.');
-          sendResponse({ currentTime: 0 }); // Fallback or error indication
+          sendResponse({ currentTime: 0 });
         }
-        return true; // Required for asynchronous sendResponse
-      } else if (message.type === 'SETTINGS_UPDATED') {
-        // Handle settings update if needed in content script directly
+        return true;
+      } 
+      else if (message.type === 'SETTINGS_UPDATED') {
         logger.log('Content script received settings update:', message.settings);
-        // You might want to update a local copy of settings or trigger a re-render of DualSubtitles
-        // if it doesn't pick up changes from chrome.storage.onChanged itself.
+        // 설정 업데이트 이벤트 전달
+        const settingsEvent = new CustomEvent('settingsUpdated', {
+          detail: message.settings
+        });
+        document.dispatchEvent(settingsEvent);
       }
     } catch (error) {
       console.error('[Content Script] Error handling message:', error);
-      // Don't rethrow the error - just log it
     }
     return true;
   };
   
   chrome.runtime.onMessage.addListener(messageListener);
-  
-  // 쿠팡플레이 기본 자막 비활성화
-  hideOriginalSubtitles();
-  
-  // UI 요소 마운트
-  mountUserInterface(videoElement, subtitleContainer, videoInfo);
 }
 
 /**
- * 사용자 인터페이스 마운트
+ * 사용자 인터페이스 마운트 (subtitleContainer 제거)
  */
 function mountUserInterface(
   videoElement: HTMLVideoElement, 
-  subtitleContainer: Element,
   videoInfo: { title: string; episodeInfo: string; videoId: string }
 ) {
   // 기존에 마운트된 요소가 있다면 제거
@@ -324,68 +311,23 @@ function mountUserInterface(
   mountPoint.id = 'play-learneng-container';
   document.body.appendChild(mountPoint);
   
-  // React 컴포넌트 렌더링
+  // React 컴포넌트 렌더링 (subtitleContainer props 제거)
   try {
     ReactDOM.createRoot(mountPoint).render(
       <React.StrictMode>
         <PlayerController 
           videoElement={videoElement} 
-          subtitleContainer={subtitleContainer} 
           videoInfo={videoInfo}
+          // 가공된 VTT 데이터 전달을 위한 getter 함수들
+          getKoreanSubtitles={() => currentKoreanSubtitles}
+          getEnglishSubtitles={() => currentEnglishSubtitles}
         />
       </React.StrictMode>
     );
     logger.log('Play LearnEng: UI 컴포넌트가 성공적으로 마운트되었습니다.');
-    
-    // 자막 컨테이너는 PlayerController에서만 생성하도록 변경 (깜빡임 문제 해결)
-    // setupDualSubtitleContainer();
   } catch (error) {
     console.error('Play LearnEng: UI 렌더링 중 오류 발생:', error);
   }
-}
-
-// 스크린샷 구조에 맞는 자막 컨테이너 설정
-function setupDualSubtitleContainer() {
-  // 기존 자막 컨테이너가 있다면 제거
-  const existingContainer = document.getElementById('play-learneng-subtitle-container');
-  if (existingContainer) {
-    existingContainer.remove();
-  }
-  
-  // 비디오 컨테이너 찾기
-  const videoContainer = document.querySelector('.video-js') || 
-                         document.querySelector('[id*="player"]') || 
-                         document.querySelector('.player-container');
-  
-  if (videoContainer) {
-    // 새 자막 컨테이너 생성
-    const subtitleContainer = document.createElement('div');
-    subtitleContainer.id = 'play-learneng-subtitle-container';
-    
-    // 스크린샷과 동일한 스타일링 적용
-    subtitleContainer.style.cssText = `
-      position: absolute;
-      bottom: 70px;
-      left: 0;
-      right: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      z-index: 9999;
-      pointer-events: none;
-      padding: 0 30px;
-      box-sizing: border-box;
-    `;
-    
-    videoContainer.appendChild(subtitleContainer);
-    logger.log('이중 자막 컨테이너 설정 완료:', subtitleContainer);
-    return subtitleContainer;
-  }
-  
-  console.warn('비디오 컨테이너를 찾을 수 없어 자막 컨테이너를 생성할 수 없습니다.');
-  return null;
 }
 
 // 페이지 변경 감지 및 재초기화
@@ -404,11 +346,14 @@ function setupPageChangeDetection() {
     
     cleanup = watchPageChanges(() => {
       logger.log('Play LearnEng: 페이지 변경 감지, 재초기화합니다.');
-      setTimeout(initialize, 1000); // 페이지 로딩을 위해 약간의 지연
+      // VTT 데이터 초기화
+      currentKoreanSubtitles = null;
+      currentEnglishSubtitles = null;
+      currentVideoId = null;
+      setTimeout(initialize, 1000);
     });
   } catch (error) {
     console.error('Error setting up page change detection:', error);
-    // 확장 컨텍스트가 끊어진 경우 복구는 불가능하므로 추가 조치는 취하지 않음
   }
 }
 
@@ -419,7 +364,6 @@ try {
     setupPageChangeDetection();
   } else {
     console.error('확장 프로그램 컨텍스트가 유효하지 않아 초기화를 시작할 수 없습니다.');
-    // 페이지가 로드된 후 메시지 표시
     setTimeout(showInvalidContextMessage, 1000);
   }
 } catch (error) {
@@ -429,163 +373,58 @@ try {
   }
 }
 
-// 커스텀 디버깅 명령 등록 (콘솔에서 사용)
+// VTT 데이터 접근을 위한 전역 디버깅 객체 강화
 (window as any).playLearnEngDebug = {
-  analyzeDOM: analyzeVideoPlayerDOM,
-  
-  // 자막 캡처 기능 추가 (interceptSubtitles는 chrome.debugger로 대체되어 제거)
-  fetchSubtitle: fetchSubtitleManually,
-  vttManager: vttSubtitleManager,
-  
-  // TextTrack API 관련 디버깅 명령 추가
-  trackManager: {
-    activateAll: () => {
-      const video = document.querySelector('video') as HTMLVideoElement;
-      if (video) activateAllTextTracks(video);
-      return 'TextTrack 활성화 시도 완료';
-    },
-    setLanguage: (lang: string) => {
-      const video = document.querySelector('video') as HTMLVideoElement;
-      if (video) setSubtitleLanguage(video, lang);
-      return `${lang} 언어 자막 활성화 시도 완료`;
-    },
-    getActive: () => {
-      const video = document.querySelector('video') as HTMLVideoElement;
-      if (video) return getActiveSubtitleText(video);
-      return [];
-    },
-    listTracks: () => {
-      const video = document.querySelector('video') as HTMLVideoElement;
-      if (!video || !video.textTracks) return '비디오 요소나 텍스트 트랙이 없습니다';
-      
-      return Array.from(video.textTracks).map((track, i) => ({
-        index: i,
-        kind: track.kind,
-        label: track.label,
-        language: track.language,
-        mode: track.mode,
-        activeCues: track.activeCues?.length || 0
-      }));
-    }
+  getCurrentSubtitles: () => {
+    const result = {
+      korean: currentKoreanSubtitles,
+      english: currentEnglishSubtitles,
+      videoId: currentVideoId
+    };
+    console.log('📊 Current subtitle state:', result);
+    return result;
   },
   
-  // 자막 검사 및 추출 함수
-  checkSubtitles: async () => {
-    try {
-      // 미리 import된 함수 사용
-      const { findSubtitleContainer } = await import('../utils/playerDetector');
-      const { findActiveSubtitles, extractSubtitleText } = await import('../utils/subtitleExtractor');
-      
-      logger.log('자막 컨테이너 검색 중...');
-      const container = findSubtitleContainer();
-      
-      if (!container) {
-        console.error('자막 컨테이너를 찾을 수 없습니다');
-        return null;
+  // 현재 시간에 해당하는 자막 텍스트 가져오기
+  getCurrentSubtitleText: (currentTime: number) => {
+    const korean = currentKoreanSubtitles?.cues.find(cue => 
+      currentTime >= cue.startTime && currentTime <= cue.endTime
+    )?.text || '';
+    
+    const english = currentEnglishSubtitles?.cues.find(cue => 
+      currentTime >= cue.startTime && currentTime <= cue.endTime
+    )?.text || '';
+    
+    const result = { korean, english, currentTime };
+    console.log('🎬 Current subtitle text at time', currentTime, ':', result);
+    return result;
+  },
+  
+  triggerSubtitleUpdate: () => {
+    const updateEvent = new CustomEvent('vttSubtitlesUpdated', {
+      detail: {
+        korean: currentKoreanSubtitles,
+        english: currentEnglishSubtitles,
+        videoId: currentVideoId
       }
-      
-      logger.log('자막 컨테이너:', container);
-      const subtitleElements = findActiveSubtitles(container);
-      logger.log(`${subtitleElements.length}개의 자막 요소를 찾았습니다:`);
-      
-      subtitleElements.forEach((el, index) => {
-        const text = extractSubtitleText(el);
-        logger.log(`자막 ${index + 1}: "${text}"`);
-      });
-      
-      return { container, elements: subtitleElements };
-    } catch (error) {
-      console.error('자막 검사 중 오류 발생:', error);
-      return null;
-    }
+    });
+    document.dispatchEvent(updateEvent);
+    console.log('📡 Manually triggered vttSubtitlesUpdated event');
   },
   
-  // 현재 상태 가져오기
-  getState: async () => {
-    try {
-      const { default: useSubtitleStore } = await import('../store/subtitleStore');
-      return useSubtitleStore.getState();
-    } catch (error) {
-      console.error('상태 가져오기 실패:', error);
-      return null;
+  // 테스트용 - 현재 비디오 시간 가져오기
+  getCurrentVideoTime: () => {
+    const video = document.querySelector('video');
+    if (video) {
+      console.log('⏰ Current video time:', video.currentTime);
+      return video.currentTime;
     }
-  },
-  
-  // 활성화된 VTT 자막 가져오기
-  getActiveVttSubtitles: () => {
-    try {
-      const videoElement = document.querySelector('video');
-      if (!videoElement) {
-        console.error('비디오 요소를 찾을 수 없습니다');
-        return null;
-      }
-      
-      return vttSubtitleManager.getActiveSubtitles(videoElement.currentTime);
-    } catch (error) {
-      console.error('VTT 자막 가져오기 실패:', error);
-      return null;
-    }
+    console.warn('⚠️ Video element not found');
+    return 0;
   }
 };
 
-logger.log('Play LearnEng 디버깅 명령이 등록되었습니다. window.playLearnEngDebug로 접근하세요.');
-
-// 확장 프로그램 정리 함수
-function cleanupExtension() {
-  try {
-    if (cleanup) {
-      cleanup();
-      cleanup = null;
-    }
-    
-    // 원본 자막 복원
-    showOriginalSubtitles();
-    
-    // 확장 프로그램이 생성한 DOM 요소 제거
-    const subtitleContainer = document.getElementById('play-learn-eng-subtitles');
-    if (subtitleContainer) {
-      subtitleContainer.remove();
-    }
-    
-    const uiContainer = document.getElementById('play-learneng-container');
-    if (uiContainer) {
-      uiContainer.remove();
-    }
-    
-    // 상태 알림 메시지 제거
-    const feedbackElement = document.getElementById('play-learneng-feedback');
-    if (feedbackElement) {
-      feedbackElement.remove();
-    }
-    
-    // Extension context invalidated 오류 알림 메시지 찾아서 제거
-    const notifications = document.querySelectorAll('div');
-    notifications.forEach(element => {
-      if (element.textContent && 
-          element.textContent.includes('확장 프로그램 컨텍스트가 무효화되었습니다')) {
-        element.remove();
-      }
-    });
-    
-    // 런타임 메시지 리스너 제거 시도 - Chrome API 접근 오류 시 조용히 실패
-    try {
-      if (chrome.runtime && chrome.runtime.onMessage) {
-        // 이 시점에서는 리스너 참조가 없어 직접 제거는 불가능하지만,
-        // 확장이 다시 로드되면 모든 리스너가 자동으로 제거됨
-        logger.log('메시지 리스너는 확장 재로드 시 자동으로 제거됩니다.');
-      }
-    } catch (error) {
-      logger.log('메시지 리스너 정리 중 오류 발생 (정상):', error.message);
-    }
-    
-    logger.log('Play LearnEng: 확장 프로그램 자원이 정리되었습니다.');
-  } catch (error) {
-    console.error('확장 프로그램 정리 중 오류:', error);
-  }
-}
-
-// 언마운트 시 정리
-window.addEventListener('beforeunload', cleanupExtension);
+logger.log('Play LearnEng VTT 중개자 모드로 로드됨. window.playLearnEngDebug로 디버깅 가능.');
 
 // 자막 저장 관련 타입 정의
 interface SavedSubtitle {
@@ -603,7 +442,6 @@ document.addEventListener('click', (e) => {
   try {
     const target = e.target as HTMLElement;
     
-    // 자막 요소 확인 (play-learneng-subtitle-text 클래스를 가진 요소)
     if (target && target.classList && 
         (target.classList.contains('play-learneng-subtitle-text') || 
          (target.className && target.className.includes('play-learneng-subtitle-')))) {
@@ -611,7 +449,6 @@ document.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
       
-      // 확장 프로그램 컨텍스트가 유효한지 확인
       if (!isExtensionContextValid()) {
         console.error('확장 프로그램 컨텍스트가 유효하지 않습니다. 자막을 저장할 수 없습니다.');
         showInvalidContextMessage();
@@ -620,31 +457,19 @@ document.addEventListener('click', (e) => {
       
       logger.log('자막 요소 클릭됨:', target.textContent);
       
-      // 클릭된 요소 정보
-      logger.log('클릭한 요소 정보:', {
-        tagName: target.tagName,
-        id: target.id,
-        className: target.className,
-        textContent: target.textContent
-      });
-      
-      // 클릭된 자막이 한국어인지 영어인지 확인
       const isKorean = target.className.includes('subtitle-ko');
       const isEnglish = target.className.includes('subtitle-en');
       
-      // 상대 언어 자막 찾기
       let pairSubtitleText = '';
       if (target.parentElement) {
         const siblingElements = Array.from(target.parentElement.children);
         
         if (isKorean) {
-          // 한국어 자막이 클릭된 경우 영어 자막 찾기
           const englishElement = siblingElements.find(el => 
             el.className && el.className.includes('subtitle-en')
           ) as HTMLElement | undefined;
           pairSubtitleText = englishElement?.textContent || '';
         } else if (isEnglish) {
-          // 영어 자막이 클릭된 경우 한국어 자막 찾기
           const koreanElement = siblingElements.find(el => 
             el.className && el.className.includes('subtitle-ko')
           ) as HTMLElement | undefined;
@@ -656,21 +481,17 @@ document.addEventListener('click', (e) => {
       const koreanText = isKorean ? subtitleText : pairSubtitleText;
       const englishText = isEnglish ? subtitleText : pairSubtitleText;
       
-      logger.log('감지된 자막:', { koreanText, englishText });
-      
       if (!koreanText && !englishText) {
         console.warn('저장할 자막 텍스트를 찾을 수 없습니다.');
         return;
       }
       
-      // 비디오 시간 가져오기
       let currentTime = 0;
       const videoElement = document.querySelector('video');
       if (videoElement) {
         currentTime = videoElement.currentTime;
       }
       
-      // 자막 저장
       saveSubtitleToStorage({
         primaryText: koreanText || '',
         secondaryText: englishText || '',
@@ -680,7 +501,6 @@ document.addEventListener('click', (e) => {
   } catch (error) {
     console.error('자막 클릭 핸들러 오류:', error);
     
-    // Extension context invalidated 에러인 경우 알림 표시
     if (error.message && error.message.includes('Extension context invalidated')) {
       showInvalidContextMessage();
     }
@@ -944,7 +764,6 @@ function showInvalidContextMessage(): void {
     document.body.appendChild(notificationBar);
   } catch (error) {
     console.error('알림 메시지 표시 중 오류:', error);
-    // 오류가 발생해도 최소한의 기능은 동작하도록 함
     alert('확장 프로그램 컨텍스트 오류: 페이지를 새로고침 해주세요.');
   }
 }
