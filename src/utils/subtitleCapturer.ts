@@ -93,82 +93,11 @@ export const extractSubtitleFromDOM = (container: Element, languageCode: string 
 
 /**
  * 모든 네트워크 요청을 모니터링하고 자막 요청을 가로채는 함수
+ * @deprecated 현재 chrome.debugger 방식을 사용하므로 이 함수는 사용되지 않음
  */
 export function interceptSubtitleRequests() {
-  logger.log('쿠팡 플레이 자막 요청 모니터링을 시작합니다...');
-  
-  const originalFetch = window.fetch;
-  window.fetch = async function(input, init) {
-    // URL 추출: 문자열, URL 객체 또는 Request 객체에서 URL 추출
-    const url = typeof input === 'string' 
-      ? input 
-      : input instanceof URL 
-        ? input.toString() 
-        : input instanceof Request 
-          ? input.url 
-          : '';
-    
-    // 쿠팡 플레이 자막 요청인지 확인
-    // .vtt 확장자 또는 다양한 자막 관련 URL 패턴 확인
-    if (url.includes('.vtt') || 
-        url.includes('subtitle') || 
-        url.includes('caption') || 
-        url.includes('captions') || 
-        url.includes('subs') ||
-        // 쿠팡 플레이 특화 패턴
-        url.includes('track') ||
-        url.includes('text-track') ||
-        url.includes('text/vtt')) {
-      logger.log('자막 요청 감지:', url);
-      
-      try {
-        // 원본 요청 실행
-        const response = await originalFetch.apply(this, [input, init]);
-        
-        // 응답 복제 (스트림은 한 번만 읽을 수 있으므로)
-        const clonedResponse = response.clone();
-        
-        // 자막 내용 분석
-        clonedResponse.text().then(text => {
-          logger.log('자막 파일 내용:');
-          logger.log(text.substring(0, 500) + (text.length > 500 ? '...' : ''));
-          
-          try {
-            // VTT 파싱
-            const cues = parseVTT(text);
-            logger.log(`파싱된 자막 큐 ${cues.length}개:`, cues.slice(0, 5));
-            
-            // 전역 변수에 저장하여 쉽게 액세스할 수 있도록 함
-            window.capturedSubtitles = {
-              url,
-              raw: text,
-              cues,
-              timestamp: new Date().toISOString()
-            };
-            
-            // 캡처된 자막 파일 저장
-            saveCapturedSubtitle(url, text);
-          } catch (parseError) {
-            console.error('자막 파싱 중 오류 발생:', parseError);
-          }
-        }).catch(error => {
-          console.error('자막 파일 분석 중 오류:', error);
-        });
-        
-        return response;
-      } catch (error) {
-        console.error('자막 요청 가로채기 중 오류:', error);
-        // 오류 발생 시 원본 fetch 호출
-        return originalFetch.apply(this, [input, init]);
-      }
-    }
-    
-    // 자막 요청이 아닌 경우 원래 fetch 실행
-    return originalFetch.apply(this, [input, init]);
-  };
-  
-  logger.log('쿠팡 플레이 자막 요청 모니터링이 활성화되었습니다.');
-  return '자막 모니터링이 시작되었습니다. 비디오를 재생하면 자막 요청이 감지됩니다.';
+  console.warn('interceptSubtitleRequests is deprecated. Using chrome.debugger approach instead.');
+  return '자막 모니터링은 background script의 chrome.debugger를 통해 처리됩니다.';
 }
 
 /**
