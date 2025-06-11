@@ -74,7 +74,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
           return;
         }
         if (data.subtitleSettings) {
-          logger.log('[PlayerController] Fetched subtitleSettings:', data.subtitleSettings);
           setSubtitleSettings(data.subtitleSettings);
         } else {
           const defaultSettings: SubtitleSettings = {
@@ -85,7 +84,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
             position: 85,
             opacity: 0.15,
           };
-          logger.log('[PlayerController] No subtitleSettings found, initializing with default:', defaultSettings);
           setSubtitleSettings(defaultSettings);
           chrome.storage.sync.set({ subtitleSettings: defaultSettings });
         }
@@ -96,7 +94,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
 
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
       if (areaName === 'sync' && changes.subtitleSettings) {
-        logger.log('[PlayerController] subtitleSettings changed:', changes.subtitleSettings.newValue);
         setSubtitleSettings(changes.subtitleSettings.newValue);
       }
     };
@@ -105,7 +102,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
 
     // 설정 업데이트 커스텀 이벤트 리스너
     const handleSettingsUpdate = (event: CustomEvent) => {
-      logger.log('[PlayerController] Settings updated via custom event:', event.detail);
       setSubtitleSettings(event.detail);
     };
 
@@ -120,10 +116,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
   // 비디오 정보 설정
   useEffect(() => {
     if (videoInfo && videoInfo.videoId && videoInfo.title) {
-      logger.log('[PlayerController] videoInfo updated:', videoInfo);
       setCurrentVideo(videoInfo.videoId, videoInfo.title);
-    } else {
-      console.warn('[PlayerController] videoInfo is incomplete:', videoInfo);
     }
   }, [videoInfo, setCurrentVideo]);
   
@@ -163,7 +156,6 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
   // VTT 데이터 업데이트 리스너
   useEffect(() => {
     const handleVttUpdate = (event: CustomEvent) => {
-      logger.log('[PlayerController] VTT subtitles updated');
       // VTT 데이터가 업데이트되면 현재 시간에 맞는 자막을 찾아서 설정
       setTimeout(() => {
         updateCurrentSubtitles();
@@ -328,6 +320,8 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
         container = document.createElement('div');
         container.id = 'play-learneng-subtitle-container';
         videoContainer.appendChild(container);
+      } else {
+        return;
       }
     }
     

@@ -191,7 +191,6 @@ function setupBackgroundMessageListener() {
   const messageListener = (message: any, sender: any, sendResponse: any) => {
     try {
       if (message.type === 'VIDEO_CHANGED') {
-        logger.log('[Content Script] Video changed, clearing subtitle data');
         currentKoreanSubtitles = null;
         currentEnglishSubtitles = null;
         currentVideoId = message.payload?.videoId || null;
@@ -206,24 +205,33 @@ function setupBackgroundMessageListener() {
           return;
         }
         
-        // 언어별로 데이터 저장
+        // 중복 데이터 체크 및 저장
+        let isNewData = false;
         if (subtitleData.language === 'ko') {
-          currentKoreanSubtitles = subtitleData;
-          logger.log(`[Content Script] Korean subtitles loaded: ${subtitleData.totalCues} cues`);
+          if (!currentKoreanSubtitles || currentKoreanSubtitles.totalCues !== subtitleData.totalCues) {
+            currentKoreanSubtitles = subtitleData;
+            isNewData = true;
+            logger.log(`[Content Script] Korean subtitles loaded: ${subtitleData.totalCues} cues`);
+          }
         } else if (subtitleData.language === 'en') {
-          currentEnglishSubtitles = subtitleData;
-          logger.log(`[Content Script] English subtitles loaded: ${subtitleData.totalCues} cues`);
+          if (!currentEnglishSubtitles || currentEnglishSubtitles.totalCues !== subtitleData.totalCues) {
+            currentEnglishSubtitles = subtitleData;
+            isNewData = true;
+            logger.log(`[Content Script] English subtitles loaded: ${subtitleData.totalCues} cues`);
+          }
         }
         
-        // PlayerController에 업데이트 알림 (커스텀 이벤트 사용)
-        const updateEvent = new CustomEvent('vttSubtitlesUpdated', {
-          detail: {
-            korean: currentKoreanSubtitles,
-            english: currentEnglishSubtitles,
-            videoId: currentVideoId
-          }
-        });
-        document.dispatchEvent(updateEvent);
+        // 새로운 데이터가 있을 때만 이벤트 발송
+        if (isNewData) {
+          const updateEvent = new CustomEvent('vttSubtitlesUpdated', {
+            detail: {
+              korean: currentKoreanSubtitles,
+              english: currentEnglishSubtitles,
+              videoId: currentVideoId
+            }
+          });
+          document.dispatchEvent(updateEvent);
+        }
         
         sendResponse({ success: true });
       }
