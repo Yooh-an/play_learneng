@@ -106,7 +106,7 @@ const Popup = () => {
     enabled: true,
     primaryLanguage: 'ko',
     secondaryLanguage: 'en',
-    fontSize: 25,
+    fontSize: 30,
     position: 85, // 85% from top (lower position)
     opacity: 0.15
   });
@@ -400,7 +400,7 @@ const Popup = () => {
       <div className="flex items-center justify-between mb-4">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-900'}`}>단어장</h3>
         <div className="flex items-center">
-          <span className="text-xl">"🗓️"</span>
+          <span className="text-xl">🗓️</span>
           <select
             value={selectedDate}
             onChange={handleDateChange}
