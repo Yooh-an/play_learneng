@@ -47,8 +47,6 @@
 
 ### 2.4. 성능 최적화 (Performance Optimization)
 - [ ] **자막 처리**: 대용량 자막 파일 로드 및 파싱 성능 개선 (`vttSubtitleService.ts`)
-- [ ] **DOM 조작**: 콘텐츠 스크립트의 DOM 조작 최적화 (`SubtitleObserver.ts`, `content/index.tsx`)
-- [ ] **메모리 관리**: 메모리 누수 점검 및 최적화 (특히 장시간 사용 시, `cleanupHelper.ts` 활용)
 - [ ] **백그라운드**: 백그라운드 스크립트 (`background/index.ts`) 작업 효율성 증대
 
 ## 🧪 Phase 3: 테스트 및 배포 준비 (Testing & Deployment Prep)
