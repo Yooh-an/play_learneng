@@ -632,8 +632,8 @@ const Popup = () => {
         <input
           id="font-size-range"
           type="range"
-          min="15"
-          max="35"
+          min="20"
+          max="40"
           value={settings.fontSize}
           onChange={(e) => saveSettings({ ...settings, fontSize: parseInt(e.target.value) })}
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
@@ -646,7 +646,7 @@ const Popup = () => {
 
       <div>
         <label htmlFor="position-range" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-700'}`}>
-          자막 위치 (85%)
+          자막 위치
         </label>
         <input
           id="position-range"

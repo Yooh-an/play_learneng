@@ -348,7 +348,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
     const secondaryLang = subtitleSettings.secondaryLanguage;
 
     // 주 자막 표시 로직
-    if (primaryTextToDisplay) {
+    if (primaryTextToDisplay && primaryTextToDisplay.trim()) {
       if (!subtitleSettings.enabled || 
           (subtitleSettings.enabled && (displayMode === 'primary' || displayMode === 'dual'))) {
         const primaryElement = document.createElement('div');
@@ -378,34 +378,37 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
       }
     }
     
-    // 부 자막 표시 로직
-    if (subtitleSettings.enabled && 
-        (displayMode === 'secondary' || displayMode === 'dual') && 
-        secondaryTextToDisplay) {
-      const secondaryElement = document.createElement('div');
-      secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLang}`;
-      secondaryElement.textContent = secondaryTextToDisplay;
-      secondaryElement.style.cssText = `
-        color: #ffffff !important;
-        padding: 6px 12px !important; margin: 8px auto 0 auto !important;
-        font-size: ${subtitleSettings.fontSize}px !important; font-weight: 600 !important; max-width: 90% !important;
-        text-align: center !important; line-height: 1.4 !important; white-space: pre-wrap !important;
-        background-color: rgba(0, 0, 0, ${subtitleSettings.opacity}) !important;
-        border-radius: 4px !important;
-        text-shadow: 
-          2px 2px 4px rgba(0, 0, 0, 0.9),
-          1px 1px 2px rgba(0, 0, 0, 0.8),
-          0 0 6px rgba(0, 0, 0, 0.6) !important;
-        -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.7) !important;
-        display: inline-block !important;
-        width: auto !important;
-        min-width: 0 !important;
-        box-sizing: border-box !important;
-        letter-spacing: 0.3px !important;
-        pointer-events: auto !important;
-        cursor: pointer !important;
-      `;
-      container.appendChild(secondaryElement);
+    // 부 자막 표시 로직 강화
+    if (secondaryTextToDisplay && secondaryTextToDisplay.trim()) {
+      if (subtitleSettings.enabled && 
+          (displayMode === 'secondary' || displayMode === 'dual')) {
+        const secondaryElement = document.createElement('div');
+        secondaryElement.className = `play-learneng-subtitle-text play-learneng-subtitle-${secondaryLang}`;
+        secondaryElement.textContent = secondaryTextToDisplay;
+        secondaryElement.style.cssText = `
+          color: #ffffff !important;
+          padding: 6px 12px !important; margin: 8px auto 0 auto !important;
+          font-size: ${subtitleSettings.fontSize}px !important; font-weight: 600 !important; max-width: 90% !important;
+          text-align: center !important; line-height: 1.4 !important; white-space: pre-wrap !important;
+          background-color: rgba(0, 0, 0, ${subtitleSettings.opacity}) !important;
+          border-radius: 4px !important;
+          text-shadow: 
+            2px 2px 4px rgba(0, 0, 0, 0.9),
+            1px 1px 2px rgba(0, 0, 0, 0.8),
+            0 0 6px rgba(0, 0, 0, 0.6) !important;
+          -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.7) !important;
+          display: inline-block !important;
+          width: auto !important;
+          min-width: 0 !important;
+          box-sizing: border-box !important;
+          letter-spacing: 0.3px !important;
+          pointer-events: auto !important;
+          cursor: pointer !important;
+        `;
+        container.appendChild(secondaryElement);
+      } else {
+      }
+    } else {
     }
   }, [displayMode, subtitleSettings]);
 
