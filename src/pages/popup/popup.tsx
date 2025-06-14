@@ -528,13 +528,18 @@ const Popup = () => {
           {filteredSubtitles.map((subtitle) => (
             <div key={subtitle.id} className={`${isDarkMode ? 'bg-[#1F1F1F] hover:bg-[#2C2C2C]' : 'bg-white hover:shadow-md'} p-3 rounded-lg shadow transition-shadow`}>
               <div className="flex justify-between items-start">
-                <div>
+                <div className="flex-1">
                   {subtitle.primaryText && <p className={`text-sm leading-relaxed ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-800'}`}>{subtitle.primaryText}</p>}
                   {subtitle.secondaryText && <p className={`text-xs mt-1 leading-relaxed ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>{subtitle.secondaryText}</p>}
+                  {subtitle.episodeTitle && (
+                    <p className={`text-xs mt-2 leading-relaxed ${isDarkMode ? 'text-[#6B7280]' : 'text-gray-400'} italic`}>
+                      📺 {subtitle.episodeTitle}
+                    </p>
+                  )}
                 </div>
                 <button 
                   onClick={() => deleteSubtitle(subtitle.id)}
-                  className="text-red-400 hover:text-red-600 transition-colors p-1 ml-2"
+                  className="text-red-400 hover:text-red-600 transition-colors p-1 ml-2 flex-shrink-0"
                   title="삭제"
                 >
                   &times;

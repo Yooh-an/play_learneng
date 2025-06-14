@@ -495,13 +495,26 @@ function saveSubtitleToStorage(subtitle: { primaryText: string; secondaryText: s
     const now = new Date();
     const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
+    // 현재 영상 정보 추가 (제목과 에피소드 정보 결합)
+    const videoInfo = extractVideoInfo();
+    let episodeTitle = '';
+    if (videoInfo) {
+      // 제목과 에피소드 정보가 모두 있으면 결합, 아니면 하나만 사용
+      if (videoInfo.title && videoInfo.episodeInfo) {
+        episodeTitle = `${videoInfo.title} - ${videoInfo.episodeInfo}`;
+      } else {
+        episodeTitle = videoInfo.title || videoInfo.episodeInfo || '';
+      }
+    }
+    
     const reviewSubtitle: SavedSubtitle = {
       id: uniqueId,
       primaryText: subtitle.primaryText,
       secondaryText: subtitle.secondaryText,
       savedAt: now.toISOString(),
       timestamp: subtitle.timestamp,
-      savedDate: dateString // 날짜 정보 추가
+      savedDate: dateString, // 날짜 정보 추가
+      episodeTitle: episodeTitle // 영상 제목과 에피소드 정보 결합
     };
     
     logger.log('자막을 저장소에 저장:', reviewSubtitle);
