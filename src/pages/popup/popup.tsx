@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import '../../index.css';
 
@@ -113,7 +113,10 @@ const Popup = () => {
   const [savedSubtitles, setSavedSubtitles] = useState<SavedSubtitle[]>([]);
   const [koreanVttSubtitles, setKoreanVttSubtitles] = useState<VttSubtitle[]>([]);
   const [englishVttSubtitles, setEnglishVttSubtitles] = useState<VttSubtitle[]>([]);
-  
+  const [isDragging, setIsDragging] = useState<string | null>(null); // 'fontSize', 'position', 'opacity' 또는 null
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartValue, setDragStartValue] = useState(0);
+
   const parseVttTimestamp = (timestampStr: string): number => {
     const parts = timestampStr.split(':');
     let seconds = 0;
@@ -329,6 +332,83 @@ const Popup = () => {
         }
     });
   };
+
+  const handleSliderMouseDown = useCallback((e: React.MouseEvent, sliderType: 'fontSize' | 'position' | 'opacity') => {
+    setIsDragging(sliderType);
+    setDragStartX(e.clientX);
+    
+    let currentValue = 0;
+    switch (sliderType) {
+      case 'fontSize':
+        currentValue = settings.fontSize;
+        break;
+      case 'position':
+        currentValue = settings.position;
+        break;
+      case 'opacity':
+        currentValue = settings.opacity * 100; // 0-100 스케일로 변환
+        break;
+    }
+    setDragStartValue(currentValue);
+    e.preventDefault();
+  }, [settings]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const deltaX = e.clientX - dragStartX;
+    let sensitivity = 1;
+    let min = 0;
+    let max = 100;
+    
+    switch (isDragging) {
+      case 'fontSize':
+        sensitivity = 0.05; // 20-40 범위이므로 더 작은 sensitivity
+        min = 20;
+        max = 40;
+        break;
+      case 'position':
+        sensitivity = 0.3; // 배경 투명도와 동일한 sensitivity로 조정
+        min = 0;
+        max = 100;
+        break;
+      case 'opacity':
+        sensitivity = 0.3;
+        min = 0;
+        max = 100;
+        break;
+    }
+    
+    const newValue = Math.max(min, Math.min(max, dragStartValue + deltaX * sensitivity));
+    
+    switch (isDragging) {
+      case 'fontSize':
+        saveSettings({ ...settings, fontSize: Math.round(newValue) });
+        break;
+      case 'position':
+        saveSettings({ ...settings, position: Math.round(newValue) });
+        break;
+      case 'opacity':
+        saveSettings({ ...settings, opacity: newValue / 100 });
+        break;
+    }
+  }, [isDragging, dragStartX, dragStartValue, settings, saveSettings]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(null);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // 오래된 자막 데이터 정리 (7일 이상 지난 데이터 삭제)
   const cleanupOldSubtitles = (subtitles: SavedSubtitle[]): SavedSubtitle[] => {
@@ -636,7 +716,8 @@ const Popup = () => {
           max="40"
           value={settings.fontSize}
           onChange={(e) => saveSettings({ ...settings, fontSize: parseInt(e.target.value) })}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          onMouseDown={(e) => handleSliderMouseDown(e, 'fontSize')}
+          className={`w-full h-2 bg-gray-200 rounded-lg appearance-none ${isDragging === 'fontSize' ? 'cursor-grabbing' : 'cursor-grab'} accent-blue-500`}
         />
         <div className={`flex justify-between text-xs mt-1 ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>
           <span>작게</span>
@@ -646,7 +727,7 @@ const Popup = () => {
 
       <div>
         <label htmlFor="position-range" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-700'}`}>
-          자막 위치
+          자막 위치: {settings.position}%
         </label>
         <input
           id="position-range"
@@ -655,7 +736,8 @@ const Popup = () => {
           max="100"
           value={settings.position}
           onChange={(e) => saveSettings({ ...settings, position: parseInt(e.target.value) })}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          onMouseDown={(e) => handleSliderMouseDown(e, 'position')}
+          className={`w-full h-2 bg-gray-200 rounded-lg appearance-none ${isDragging === 'position' ? 'cursor-grabbing' : 'cursor-grab'} accent-blue-500`}
         />
         <div className={`flex justify-between text-xs mt-1 ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>
           <span>상단 (0%)</span>
@@ -676,7 +758,8 @@ const Popup = () => {
           step="0.05"
           value={settings.opacity}
           onChange={(e) => saveSettings({ ...settings, opacity: parseFloat(e.target.value) })}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          onMouseDown={(e) => handleSliderMouseDown(e, 'opacity')}
+          className={`w-full h-2 bg-gray-200 rounded-lg appearance-none ${isDragging === 'opacity' ? 'cursor-grabbing' : 'cursor-grab'} accent-blue-500`}
         />
         <div className={`flex justify-between text-xs mt-1 ${isDarkMode ? 'text-[#9CA3AF]' : 'text-gray-500'}`}>
           <span>투명하게</span>
