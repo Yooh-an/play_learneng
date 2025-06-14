@@ -108,7 +108,7 @@ const Popup = () => {
     secondaryLanguage: 'en',
     fontSize: 30,
     position: 85,
-    opacity: 0.15
+    opacity: 0.30
   });
   const [savedSubtitles, setSavedSubtitles] = useState<SavedSubtitle[]>([]);
   const [koreanVttSubtitles, setKoreanVttSubtitles] = useState<VttSubtitle[]>([]);

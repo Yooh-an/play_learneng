@@ -82,7 +82,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
             secondaryLanguage: 'en',
             fontSize:30,
             position: 85,
-            opacity: 0.15,
+            opacity: 0.30,
           };
           setSubtitleSettings(defaultSettings);
           chrome.storage.sync.set({ subtitleSettings: defaultSettings });
