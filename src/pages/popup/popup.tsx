@@ -116,6 +116,7 @@ const Popup = () => {
   const [isDragging, setIsDragging] = useState<string | null>(null); // 'fontSize', 'position', 'opacity' 또는 null
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartValue, setDragStartValue] = useState(0);
+  const [tempSettings, setTempSettings] = useState<SubtitleSettings | null>(null); // 드래그 중 임시 설정
 
   const parseVttTimestamp = (timestampStr: string): number => {
     const parts = timestampStr.split(':');
@@ -336,6 +337,7 @@ const Popup = () => {
   const handleSliderMouseDown = useCallback((e: React.MouseEvent, sliderType: 'fontSize' | 'position' | 'opacity') => {
     setIsDragging(sliderType);
     setDragStartX(e.clientX);
+    setTempSettings(settings); // 드래그 시작 시 현재 설정을 임시 설정으로 복사
     
     let currentValue = 0;
     switch (sliderType) {
@@ -354,7 +356,7 @@ const Popup = () => {
   }, [settings]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || !tempSettings) return;
     
     const deltaX = e.clientX - dragStartX;
     let sensitivity = 1;
@@ -381,22 +383,39 @@ const Popup = () => {
     
     const newValue = Math.max(min, Math.min(max, dragStartValue + deltaX * sensitivity));
     
+    // 드래그 중에는 임시 설정만 업데이트 (저장소에는 저장하지 않음)
+    let updatedTempSettings = { ...tempSettings };
     switch (isDragging) {
       case 'fontSize':
-        saveSettings({ ...settings, fontSize: Math.round(newValue) });
+        updatedTempSettings.fontSize = Math.round(newValue);
         break;
       case 'position':
-        saveSettings({ ...settings, position: Math.round(newValue) });
+        updatedTempSettings.position = Math.round(newValue);
         break;
       case 'opacity':
-        saveSettings({ ...settings, opacity: newValue / 100 });
+        updatedTempSettings.opacity = newValue / 100;
         break;
     }
-  }, [isDragging, dragStartX, dragStartValue, settings, saveSettings]);
+    
+    setTempSettings(updatedTempSettings);
+    setSettings(updatedTempSettings); // UI 업데이트를 위해 로컬 상태도 업데이트
+    
+    // 실시간으로 컨텐츠 스크립트에만 전송 (저장소는 업데이트하지 않음)
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id && tabs[0].url?.includes('coupangplay.com')) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: 'SETTINGS_UPDATED', settings: updatedTempSettings });
+        }
+    });
+  }, [isDragging, dragStartX, dragStartValue, tempSettings]);
 
   const handleMouseUp = useCallback(() => {
+    if (isDragging && tempSettings) {
+      // 드래그 완료 시에만 저장소에 저장
+      chrome.storage.sync.set({ subtitleSettings: tempSettings });
+    }
     setIsDragging(null);
-  }, []);
+    setTempSettings(null);
+  }, [isDragging, tempSettings]);
 
   useEffect(() => {
     if (isDragging) {
