@@ -5,7 +5,7 @@ import { detectPlayerWithRetry, extractVideoInfo, hideOriginalSubtitles, watchPa
 import PlayerController from '../components/player/PlayerController';
 import { logger } from '../utils/logger';
 
-logger.log('Play LearnEng Content Script Loaded');
+// logger.log('Play LearnEng Content Script Loaded');
 
 // VTT 데이터 상태 관리
 interface ProcessedSubtitleData {
@@ -33,34 +33,34 @@ let currentVideoId: string | null = null;
  * Shift+C 단축키로 현재 화면의 자막을 저장
  */
 function setupKeyboardShortcuts(): void {
-  logger.log('[Content Script] 단축키 설정 중 (Shift+C)...');
+  // logger.log('[Content Script] 단축키 설정 중 (Shift+C)...');
   
   document.addEventListener('keydown', (event) => {
     if (event.key === 'C' && event.shiftKey) {
-      logger.log('[Content Script] 단축키 감지: Shift+C');
+      // logger.log('[Content Script] 단축키 감지: Shift+C');
       saveCurrentSubtitles();
     }
   });
   
-  logger.log('[Content Script] 단축키 설정 완료');
+  // logger.log('[Content Script] 단축키 설정 완료');
 }
 
 /**
  * 현재 화면에 보이는 자막을 저장하는 함수
  */
 function saveCurrentSubtitles(): void {
-  logger.log('[Content Script] 현재 자막 저장 시도...');
+  // logger.log('[Content Script] 현재 자막 저장 시도...');
   
   const subtitleElements = document.querySelectorAll('.play-learneng-subtitle-text');
   
   if (subtitleElements.length === 0) {
-    logger.log('[Content Script] 저장할 자막을 찾을 수 없습니다.');
+    // logger.log('[Content Script] 저장할 자막을 찾을 수 없습니다.');
     showFeedbackMessage('저장할 자막을 찾을 수 없습니다.');
     return;
   }
   
   (subtitleElements[0] as HTMLElement).click();
-  logger.log('[Content Script] 자막 저장을 위해 자막 요소 클릭됨');
+  // logger.log('[Content Script] 자막 저장을 위해 자막 요소 클릭됨');
 }
 
 /**
@@ -121,7 +121,7 @@ function showFeedbackMessage(message: string): void {
  * 확장 프로그램 UI 초기화
  */
 async function initialize() {
-  logger.log('Play LearnEng: 초기화 중...');
+  // logger.log('Play LearnEng: 초기화 중...');
 
   // Extension context 유효성 확인
   if (!isExtensionContextValid()) {
@@ -133,7 +133,7 @@ async function initialize() {
   // 백그라운드 스크립트에 컨텐트 스크립트 준비 완료 알림
   try {
     const response = await chrome.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' });
-    logger.log('[Content Script] Background notified of readiness:', response);
+    // logger.log('[Content Script] Background notified of readiness:', response);
   } catch (error) {
     console.error('[Content Script] Error notifying background of readiness:', error);
     if (error.message.includes('Extension context invalidated')) {
@@ -156,19 +156,19 @@ async function initialize() {
   const { videoElement } = detection;
   const videoInfo = extractVideoInfo();
   
-  logger.log('Play LearnEng: 비디오 정보', videoInfo);
+  // logger.log('Play LearnEng: 비디오 정보', videoInfo);
   
   // 백그라운드에 새 동영상 감지 알림
   if (videoInfo && videoInfo.videoId) {
     try {
-      logger.log(`Play LearnEng: 백그라운드에 동영상 감지 알림 (videoId: ${videoInfo.videoId})`);
+      // logger.log(`Play LearnEng: 백그라운드에 동영상 감지 알림 (videoId: ${videoInfo.videoId})`);
       currentVideoId = videoInfo.videoId;
       
       const response = await chrome.runtime.sendMessage({
         type: 'VIDEO_ELEMENT_FOUND',
         payload: { videoId: videoInfo.videoId }
       });
-      logger.log('백그라운드에 비디오 감지 알림 성공:', response);
+      // logger.log('백그라운드에 비디오 감지 알림 성공:', response);
     } catch (error) {
       console.error('비디오 감지 알림 중 오류 발생:', error);
     }
@@ -211,13 +211,13 @@ function setupBackgroundMessageListener() {
           if (!currentKoreanSubtitles || currentKoreanSubtitles.totalCues !== subtitleData.totalCues) {
             currentKoreanSubtitles = subtitleData;
             isNewData = true;
-            logger.log(`[Content Script] Korean subtitles loaded: ${subtitleData.totalCues} cues`);
+            // logger.log(`[Content Script] Korean subtitles loaded: ${subtitleData.totalCues} cues`);
           }
         } else if (subtitleData.language === 'en') {
           if (!currentEnglishSubtitles || currentEnglishSubtitles.totalCues !== subtitleData.totalCues) {
             currentEnglishSubtitles = subtitleData;
             isNewData = true;
-            logger.log(`[Content Script] English subtitles loaded: ${subtitleData.totalCues} cues`);
+            // logger.log(`[Content Script] English subtitles loaded: ${subtitleData.totalCues} cues`);
           }
         }
         
@@ -316,7 +316,7 @@ function mountUserInterface(
         />
       </React.StrictMode>
     );
-    logger.log('Play LearnEng: UI 컴포넌트가 성공적으로 마운트되었습니다.');
+    // logger.log('Play LearnEng: UI 컴포넌트가 성공적으로 마운트되었습니다.');
   } catch (error) {
     console.error('Play LearnEng: UI 렌더링 중 오류 발생:', error);
   }
@@ -337,7 +337,7 @@ function setupPageChangeDetection() {
     }
     
     cleanup = watchPageChanges(() => {
-      logger.log('Play LearnEng: 페이지 변경 감지, 재초기화합니다.');
+      // logger.log('Play LearnEng: 페이지 변경 감지, 재초기화합니다.');
       // VTT 데이터 초기화
       currentKoreanSubtitles = null;
       currentEnglishSubtitles = null;
@@ -402,7 +402,7 @@ try {
   }
 };
 
-logger.log('Play LearnEng VTT 중개자 모드로 로드됨.');
+// logger.log('Play LearnEng VTT 중개자 모드로 로드됨.');
 
 // 자막 저장 관련 타입 정의
 interface SavedSubtitle {
@@ -433,7 +433,7 @@ document.addEventListener('click', (e) => {
         return;
       }
       
-      logger.log('자막 요소 클릭됨:', target.textContent);
+      // logger.log('자막 요소 클릭됨:', target.textContent);
       
       const isKorean = target.className.includes('subtitle-ko');
       const isEnglish = target.className.includes('subtitle-en');
@@ -517,7 +517,7 @@ function saveSubtitleToStorage(subtitle: { primaryText: string; secondaryText: s
       episodeTitle: episodeTitle // 영상 제목과 에피소드 정보 결합
     };
     
-    logger.log('자막을 저장소에 저장:', reviewSubtitle);
+    // logger.log('자막을 저장소에 저장:', reviewSubtitle);
     
     // 로컬 스토리지에 먼저 저장 (백업)
     try {
@@ -579,7 +579,7 @@ function saveSubtitleToStorage(subtitle: { primaryText: string; secondaryText: s
               showFeedback('저장 실패. 새로고침 후 다시 시도해보세요', false);
             }
           } else {
-            logger.log('자막이 성공적으로 저장되었습니다');
+            // logger.log('자막이 성공적으로 저장되었습니다');
             
             // 한글 텍스트 우선 표시
             const displayText = subtitle.primaryText || subtitle.secondaryText;
