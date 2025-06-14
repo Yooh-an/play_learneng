@@ -107,7 +107,7 @@ const Popup = () => {
     primaryLanguage: 'ko',
     secondaryLanguage: 'en',
     fontSize: 30,
-    position: 85, // 85% from top (lower position)
+    position: 85,
     opacity: 0.15
   });
   const [savedSubtitles, setSavedSubtitles] = useState<SavedSubtitle[]>([]);
@@ -157,7 +157,6 @@ const Popup = () => {
     while (i < lines.length && lines[i].trim() === '') {
         i++;
     }
-
 
     for (; i < lines.length; i++) {
       const line = lines[i]?.trim();

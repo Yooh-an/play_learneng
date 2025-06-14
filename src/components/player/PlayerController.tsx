@@ -80,7 +80,7 @@ const PlayerController: React.FC<PlayerControllerProps> = ({
             enabled: true,
             primaryLanguage: 'ko',
             secondaryLanguage: 'en',
-            fontSize: 25,
+            fontSize:30,
             position: 85,
             opacity: 0.15,
           };
