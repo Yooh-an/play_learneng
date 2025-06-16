@@ -695,7 +695,7 @@ const Popup = () => {
       </div>
 
       <div>
-        <label htmlFor="primary-lang-select" className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-700'}`}>주 언어 (자막 저장 시 기준)</label>
+        <label htmlFor="primary-lang-select" className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-700'}`}>주 언어</label>
         <select
           id="primary-lang-select"
           value={settings.primaryLanguage}
