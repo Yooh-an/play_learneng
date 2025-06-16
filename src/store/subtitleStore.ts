@@ -44,7 +44,7 @@ interface SubtitleState {
   setSecondaryLanguage: (lang: string) => void;
   setDisplayMode: (mode: 'primary' | 'secondary' | 'dual') => void;
   setSubtitleSync: (syncTime: number) => void;
-  adjustSubtitleSync: (amount: number) => void;  // 자막 싱크 미세 조절
+  adjustSubtitleSync: (amount: number) => void;
   setIsPlaying: (isPlaying: boolean) => void;
   setCurrentVideo: (videoId: string, title: string) => void;
   setActiveSubtitles: (subtitle: ActiveSubtitle | null) => void;

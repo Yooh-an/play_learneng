@@ -492,12 +492,64 @@ const Popup = () => {
     
     // 선택된 날짜에 따라 필터링된 자막 목록
     const filteredSubtitles = getFilteredSubtitles();
+
+    // 시간-분-초 형식으로 변환하는 함수
+    const formatTimestampForExport = (timeInSeconds: number): string => {
+      if (isNaN(timeInSeconds) || timeInSeconds < 0) return "00:00:00";
+      const hours = Math.floor(timeInSeconds / 3600);
+      const minutes = Math.floor((timeInSeconds % 3600) / 60);
+      const seconds = Math.floor(timeInSeconds % 60);
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    };
+
+    // 데이터 내보내기 함수
+    const exportData = () => {
+      const dataToExport = filteredSubtitles.map(subtitle => ({
+        '주요자막': subtitle.primaryText,
+        '보조자막': subtitle.secondaryText,
+        '에피소드제목': subtitle.episodeTitle || '',
+        '저장날짜': subtitle.savedDate,
+        '시간': formatTimestampForExport(subtitle.timestamp),
+      }));
+
+      let textData = "";
+      dataToExport.forEach(item => {
+        textData += `주요자막:\n${item['주요자막']}\n`;
+        textData += `보조자막:\n${item['보조자막']}\n`;
+        textData += `에피소드제목: ${item['에피소드제목']}\n`;
+        textData += `저장날짜: ${item['저장날짜']}\n`;
+        textData += `시간: ${item['시간']}\n`;
+        textData += "--------------------\n";
+      });
+
+      const blob = new Blob([textData], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LearnEng_Review_Export_${selectedDate === 'all' ? 'all' : selectedDate}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
     
     return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-[#EAEAEA]' : 'text-gray-900'}`}>단어장</h3>
-        <div className="flex items-center">
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={exportData}
+            disabled={filteredSubtitles.length === 0}
+            className={`px-3 py-1 text-xs font-medium rounded border transition-colors ${
+              isDarkMode
+                ? 'border-[#374151] text-[#EAEAEA] hover:bg-[#2C2C2C] disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed'
+            }`}
+            title="현재 선택된 날짜의 단어장 내보내기"
+          >
+            내보내기
+          </button>
           <span className="text-xl">🗓️</span>
           <select
             value={selectedDate}
